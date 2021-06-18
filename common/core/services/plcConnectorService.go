@@ -1,0 +1,45 @@
+package services
+
+import (
+	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/Spruik/libre-common/common/core/ports"
+	"time"
+)
+
+type plcConnectorService struct {
+	plcConnectorPort ports.PlcConnectorPort
+}
+
+func NewPlcConnectorService(port ports.PlcConnectorPort) *plcConnectorService {
+	return &plcConnectorService{
+		plcConnectorPort: port,
+	}
+}
+
+var plcConnectorServiceInstance *plcConnectorService = nil
+
+func SetPlcConnectorServiceInstance(inst *plcConnectorService) {
+	plcConnectorServiceInstance = inst
+}
+func GetPlcConnectorServiceInstance() *plcConnectorService {
+	return plcConnectorServiceInstance
+}
+
+func (s *plcConnectorService) Connect() error {
+	return s.plcConnectorPort.Connect()
+}
+func (s *plcConnectorService) Close() error {
+	return s.plcConnectorPort.Close()
+}
+func (s *plcConnectorService) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	return s.plcConnectorPort.ReadTags(inTagDefs)
+}
+func (s *plcConnectorService) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	return s.plcConnectorPort.WriteTags(outTagDefs)
+}
+func (s *plcConnectorService) ListenForPlcTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
+	s.plcConnectorPort.ListenForPlcTagChanges(c, changeFilter)
+}
+func (s *plcConnectorService) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	return s.plcConnectorPort.GetTagHistory(startTS, endTS, inTagDefs)
+}
