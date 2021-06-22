@@ -3,7 +3,6 @@ package drivers
 import (
 	"context"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/ports"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
@@ -15,8 +14,6 @@ type libreHistorianInfluxdb struct {
 	libreConfig.ConfigurationEnabler
 	libreLogger.LoggingEnabler
 
-	port ports.LibreHistorianPort
-
 	org                   string
 	bucket                string
 	client                influxdb2.Client
@@ -25,10 +22,8 @@ type libreHistorianInfluxdb struct {
 	eqPropMeasurementName string
 }
 
-func NewLibreHistorianInfluxdb(port ports.LibreHistorianPort, configHook string) *libreHistorianInfluxdb {
-	s := libreHistorianInfluxdb{
-		port: port,
-	}
+func NewLibreHistorianInfluxdb(configHook string) *libreHistorianInfluxdb {
+	s := libreHistorianInfluxdb{}
 	s.SetConfigCategory(configHook)
 	hook, err := s.GetConfigItemWithDefault("loggingHook", "Influxdb")
 	if err == nil {
