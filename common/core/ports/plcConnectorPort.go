@@ -37,3 +37,9 @@ type PlcConnectorPort interface {
 	//GetTagHistory requests all of the changes to the given tags during the specified time range
 	GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct
 }
+
+//////////////////////////////////
+
+type PlcConnectorFactoryPort interface {
+	CreatePlcConnectorInstance(key string, configHook string) PlcConnectorPort
+}

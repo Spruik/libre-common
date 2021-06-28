@@ -23,27 +23,32 @@ type plcConnectorMQTT struct {
 	mqttClient     *mqtt.Client
 	ChangeChannels map[string]chan domain.StdMessageStruct
 
-	topicTemplate    string
-	tagDataCategory  string
-	adminCategory    string
-	topicParseRegExp *regexp.Regexp
+	topicTemplateList    []string
+	topicParseRegExpList []*regexp.Regexp
 }
 
 func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 	s := plcConnectorMQTT{
-		mqttClient:     nil,
-		ChangeChannels: make(map[string]chan domain.StdMessageStruct),
+		mqttClient:           nil,
+		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
+		topicTemplateList:    make([]string, 0, 0),
+		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
 	}
 	s.SetConfigCategory(configCategoryName)
 	s.SetLoggerConfigHook("PlcConnectorMQTT")
-	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "Status")
-	s.adminCategory, _ = s.GetConfigItemWithDefault("ADMIN_CATEGORY", "Admin")
-	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/<CATEGORY>/<TAGNAME>")
-	topicRE := s.topicTemplate
-	topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_]*)", -1)
-	topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
-	topicRE = strings.Replace(topicRE, "<CATEGORY>", fmt.Sprintf("(?P<CATEGORY>%s|%s)", s.adminCategory, s.tagDataCategory), -1)
-	s.topicParseRegExp = regexp.MustCompile(topicRE)
+	tmplStanza, err := s.GetConfigStanza("TOPIC_TEMPLATES")
+	if err == nil {
+		for _, child := range tmplStanza.Children {
+			s.topicTemplateList = append(s.topicTemplateList, child.Value)
+			topicRE := "^" + child.Value + "$"
+			topicRE = strings.Replace(topicRE, "<", "(?P<", -1)
+			topicRE = strings.Replace(topicRE, ">", ">[A-Za-z0-9_]*)", -1)
+			//topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_]*)", -1)
+			//topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
+			s.topicParseRegExpList = append(s.topicParseRegExpList, regexp.MustCompile(topicRE))
+		}
+	}
+
 	return &s
 }
 
@@ -121,7 +126,7 @@ func (s *plcConnectorMQTT) Close() error {
 	if err == nil {
 		s.mqttClient = nil
 	}
-	s.LogInfof("%s Connection Closed\n", s.mqttClient.ClientID)
+	s.LogInfof("PLC Connection Closed\n")
 	return err
 }
 
@@ -153,33 +158,25 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 	for key, val := range changeFilter {
 		s.LogDebugf("topic map item: %s=%s", key, val)
 		if strings.Contains(key, "Topic") {
-			topicSet[s.buildTagTopicString(clientName, val)] = struct{}{}
+			for _, tmpl := range s.topicTemplateList {
+				var topic string = tmpl
+				topic = strings.Replace(topic, "<EQNAME>", clientName, -1)
+				topic = strings.Replace(topic, "<TAGNAME>", fmt.Sprintf("%s", val), -1)
+				var i, j int
+				i = strings.Index(topic, "<")
+				for i >= 0 {
+					j = strings.Index(topic, ">")
+					topic = topic[0:i] + "+" + topic[j+1:]
+					i = strings.Index(topic, "<")
+				}
+				topicSet[topic] = struct{}{}
+			}
 		}
 	}
 	for key := range topicSet {
 		s.LogDebugf("subscription topic: %s", key)
 		s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
-	//also subscribe to the Admin generically
-	s.SubscribeToTopic(s.buildAdminTopicString(clientName))
-}
-
-func (s *plcConnectorMQTT) buildTagTopicString(eqname string, propname interface{}) string {
-	var topic string = s.topicTemplate
-	topic = strings.Replace(topic, "<EQNAME>", eqname, -1)
-	topic = strings.Replace(topic, "<CATEGORY>", s.tagDataCategory, -1)
-	topic = strings.Replace(topic, "<TAGNAME>", fmt.Sprintf("%s", propname), -1)
-	//TODO - more robust and complete template processing?
-	return topic
-}
-
-func (s *plcConnectorMQTT) buildAdminTopicString(eqname string) string {
-	var topic string = s.topicTemplate
-	topic = strings.Replace(topic, "<EQNAME>", eqname, -1)
-	topic = strings.Replace(topic, "<CATEGORY>", s.adminCategory, -1)
-	topic = strings.Replace(topic, "<TAGNAME>", "#", -1)
-	//TODO - more robust and complete template processing?
-	return topic
 }
 
 func (s *plcConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
@@ -254,18 +251,32 @@ func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
 		ItemValue:   string(m.Payload),
 		TagQuality:  128,
 		Err:         nil,
-		Category:    tokenMap["CATEGORY"],
+		//Category:    tokenMap["CATEGORY"],
+
+	}
+	if tagStruct.ItemName == "" {
+		tagStruct.ItemNameExt = make(map[string]string)
+		for key, val := range tokenMap {
+			if key != "EQNAME" && key != "TAGNAME" {
+				tagStruct.ItemNameExt[key] = val
+			}
+		}
 	}
 	s.ChangeChannels[tokenMap["EQNAME"]] <- tagStruct
 }
 
 func (s *plcConnectorMQTT) parseTopic(topic string) map[string]string {
 	ret := map[string]string{}
-	names := s.topicParseRegExp.SubexpNames()
-	matches := s.topicParseRegExp.FindStringSubmatch(topic)
-	for i, name := range names {
-		if i > 0 && i <= len(matches) {
-			ret[name] = matches[i]
+	for _, re := range s.topicParseRegExpList {
+		if re.MatchString(topic) {
+			matches := re.FindStringSubmatch(topic)
+			names := re.SubexpNames()
+			for i, name := range names {
+				if i > 0 && i <= len(matches) {
+					ret[name] = matches[i]
+				}
+			}
+			break
 		}
 	}
 	return ret

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/Spruik/libre-common/common/core/queries"
+	"github.com/Spruik/libre-common/common/core/services"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	"github.com/gopcua/opcua"
@@ -23,14 +25,18 @@ type plcConnectorOPCUA struct {
 	uaClient          *opcua.Client
 	connectionContext context.Context
 	ChangeChannels    map[string]chan domain.StdMessageStruct
+
+	aliasSystem string
 }
 
-func NewPlcConnectorOPCUA() *plcConnectorOPCUA {
+func NewPlcConnectorOPCUA(configHook string) *plcConnectorOPCUA {
 	s := plcConnectorOPCUA{
 		ChangeChannels: map[string]chan domain.StdMessageStruct{},
 	}
-	s.SetConfigCategory("plcConnectorOPCUA")
-	s.SetLoggerConfigHook("OPCUA")
+	s.SetConfigCategory(configHook)
+	loggerHook, _ := s.GetConfigItemWithDefault("loggerHook", "OPCUA")
+	s.SetLoggerConfigHook(loggerHook)
+	s.aliasSystem, _ = s.GetConfigItemWithDefault("aliasSystem", "OPCUA")
 	return &s
 }
 
@@ -74,11 +80,14 @@ func (s *plcConnectorOPCUA) Connect() error {
 	return err
 }
 func (s *plcConnectorOPCUA) Close() error {
-	err := s.uaClient.Close()
-	if err != nil {
-		s.LogError("OPCUA", "Failed in OPCUA close: ", err)
+	if s.uaClient != nil {
+		err := s.uaClient.Close()
+		if err != nil {
+			s.LogError("OPCUA", "Failed in OPCUA close: ", err)
+		}
+		return err
 	}
-	return err
+	return nil
 }
 func (s *plcConnectorOPCUA) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	//TODO - use the "read" facility in OPCUA - should be straightforward
@@ -110,15 +119,36 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 	nodeNames := make([]string, 0, 0)
 	for key, val := range changeFilter {
 		if strings.Index(key, "Topic") == 0 {
-			if strings.Index(fmt.Sprintf("%s", val), "ns=") == 0 {
+			var extName string = s.getAliasForPropName(fmt.Sprintf("%s", val), clientName)
+			if strings.Index(fmt.Sprintf("%s", extName), "ns=") == 0 {
 				//node has a good OPCUA name, so subscribe
-				nodeNames = append(nodeNames, fmt.Sprintf("%s", val))
+				nodeNames = append(nodeNames, fmt.Sprintf("%s", extName))
 			} else {
-				s.LogInfof("Skipping OPCUA subscription to item %s because it's name is not compliant", val)
+				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", val, extName)
 			}
 		}
 	}
 	s.startChanSub(clientName, s.connectionContext, m, time.Second*5, 0, nodeNames...)
+}
+
+func (s *plcConnectorOPCUA) getAliasForPropName(stdPropName string, eqName string) string {
+	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
+	defer txn.Dispose()
+	extName, err := queries.GetAliasPropertyNameForSystem(txn, s.aliasSystem, stdPropName, eqName)
+	if err == nil {
+		return extName
+	}
+	return stdPropName
+}
+
+func (s *plcConnectorOPCUA) getPropNameForAlias(extName string) string {
+	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "stdCheck")
+	defer txn.Dispose()
+	intName, err := queries.GetPropertyNameForSystemAlias(txn, s.aliasSystem, extName)
+	if err == nil {
+		return intName
+	}
+	return extName
 }
 
 func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
@@ -150,9 +180,10 @@ func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context,
 				log.Printf("%s[channel ] sub=%d error=%s", clientName, sub.SubscriptionID(), msg.Error)
 			} else {
 				log.Printf("%s[channel ] sub=%d ts=%s node=%s value=%v", clientName, sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+				intName := s.getPropNameForAlias(msg.NodeID.String())
 				tagData := domain.StdMessageStruct{
 					OwningAsset: "", //will be completed by channel listener
-					ItemName:    msg.NodeID.String(),
+					ItemName:    intName,
 					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
 					TagQuality:  128,
 					Err:         nil,

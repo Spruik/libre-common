@@ -24,7 +24,10 @@ type StdMessageStruct struct {
 	OwningAsset   string
 	OwningAssetId string
 	ItemName      string
+	ItemNameExt   map[string]string
+	ItemId        string
 	ItemValue     string
+	ItemDataType  string
 	TagQuality    int
 	Err           error
 	Category      string

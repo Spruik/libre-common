@@ -25,7 +25,7 @@ type libreHistorianInfluxdb struct {
 func NewLibreHistorianInfluxdb(configHook string) *libreHistorianInfluxdb {
 	s := libreHistorianInfluxdb{}
 	s.SetConfigCategory(configHook)
-	hook, err := s.GetConfigItemWithDefault("loggingHook", "Influxdb")
+	hook, err := s.GetConfigItemWithDefault("loggerHook", "Influxdb")
 	if err == nil {
 		s.SetLoggerConfigHook(hook)
 	}
@@ -44,18 +44,22 @@ func (s *libreHistorianInfluxdb) Connect() error {
 			s.org, err = s.GetConfigItem("org")
 			if err == nil {
 				s.bucket, err = s.GetConfigItem("bucket")
-				if err == nil {
-					s.eqPropMeasurementName, err = s.GetConfigItem("eqPropMeasurementName")
+				if err != nil {
+					panic(fmt.Sprintf("Failed to get the 'bucket' entry from configuration [%s]", err))
 				}
+			} else {
+				panic(fmt.Sprintf("Failed to get the 'org' entry from configuration [%s]", err))
 			}
+		} else {
+			panic(fmt.Sprintf("Failed to get the 'authToken' entry from configuration [%s]", err))
 		}
+	} else {
+		panic(fmt.Sprintf("Failed to get the 'serverURL' entry from configuration [%s]", err))
 	}
 	if err == nil {
-		if err == nil {
-			s.client = influxdb2.NewClient(url, authToken)
-			s.writeAPI = s.client.WriteAPIBlocking(s.org, s.bucket)
-			s.queryAPI = s.client.QueryAPI(s.org)
-		}
+		s.client = influxdb2.NewClient(url, authToken)
+		s.writeAPI = s.client.WriteAPIBlocking(s.org, s.bucket)
+		s.queryAPI = s.client.QueryAPI(s.org)
 	} else {
 		panic(fmt.Sprintf("Failed in configuration of the InfluxDB client: %s", err))
 	}
@@ -63,12 +67,15 @@ func (s *libreHistorianInfluxdb) Connect() error {
 }
 
 func (s *libreHistorianInfluxdb) Close() error {
-	return nil
+	if s.client != nil {
+		s.client.Close()
+	}
+	return nil //influx close returns no value
 }
 
-func (s *libreHistorianInfluxdb) AddDataPointRaw(pointName string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
+func (s *libreHistorianInfluxdb) AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
 	// Create point using full params constructor
-	p := influxdb2.NewPoint(pointName,
+	p := influxdb2.NewPoint(measurement,
 		tags,
 		fields,
 		ts)
@@ -76,12 +83,15 @@ func (s *libreHistorianInfluxdb) AddDataPointRaw(pointName string, tags map[stri
 	return s.writeAPI.WritePoint(context.Background(), p)
 }
 
-func (s *libreHistorianInfluxdb) AddEqPropDataPoint(eqId string, eqName string, propId string, propName string, ts time.Time) error {
+func (s *libreHistorianInfluxdb) AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error {
 	// Create point using fluent style
-	p := influxdb2.NewPointWithMeasurement(s.eqPropMeasurementName).
+	p := influxdb2.NewPointWithMeasurement(measurement).
 		AddTag("equipmentId", eqId).
-		AddField("propId", 23.2).
+		AddTag("propId", propId).
+		AddField(propName, propValue).
 		SetTime(ts)
+	s.LogDebugf("using eqId=%s, eqName=%s, propId=%s, propName=%s, propValue=%+v, ts=%+v", eqId, eqName, propId, propName, propValue, ts)
+	s.LogDebugf("built a new point for influxdb storage of a prop value:  %+v", p)
 	return s.writeAPI.WritePoint(context.Background(), p)
 }
 

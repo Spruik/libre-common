@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -27,6 +28,8 @@ type edgeConnectorMQTT struct {
 
 	topicTemplate    string
 	topicParseRegExp *regexp.Regexp
+	tagDataCategory  string
+	eventCategory    string
 }
 
 func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
@@ -36,6 +39,8 @@ func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
 	s.SetConfigCategory("edgeConnectorMQTT")
 	s.SetLoggerConfigHook("EDGEMQTT")
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/Report/<TAGNAME>")
+	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
+	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
 	topicRE := s.topicTemplate
 	topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_]*)", -1)
 	topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
@@ -57,7 +62,7 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 	conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Failed to connect to %s: %s", server, err)
 		return err
 	}
 
@@ -111,7 +116,7 @@ func (s *edgeConnectorMQTT) Close() error {
 	if err == nil {
 		s.mqttClient = nil
 	}
-	s.LogInfof("%s Connection Closed\n", s.mqttClient.ClientID)
+	s.LogInfo("Edge Connection Closed\n")
 	return err
 }
 
@@ -138,17 +143,29 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
-			topic := s.buildTopicString(key, val)
-			s.SubscribeToTopic(topic)
-			s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+			topic := s.buildTopicString(s.tagDataCategory, val)
+			err := s.SubscribeToTopic(topic)
+			if err == nil {
+				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+			} else {
+				panic(err)
+			}
+			topic = s.buildTopicString(s.eventCategory, val)
+			err = s.SubscribeToTopic(topic)
+			if err == nil {
+				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+			} else {
+				panic(err)
+			}
 		}
 	}
 }
 
-func (s *edgeConnectorMQTT) buildTopicString(changeFilterKey string, changeFilerVal interface{}) string {
+func (s *edgeConnectorMQTT) buildTopicString(category string, changeFilerVal interface{}) string {
 	var topic string = s.topicTemplate
 	topic = strings.Replace(topic, "<EQNAME>", fmt.Sprintf("%s", changeFilerVal), -1)
 	//TODO - more robust and complete template processing
+	topic = strings.Replace(topic, "<CATEGORY>", category, -1)
 	topic = strings.Replace(topic, "<TAGNAME>", "#", -1)
 	return topic
 }
@@ -162,7 +179,7 @@ func (s *edgeConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, in
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) {
+func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 	subPropsStruct := &mqtt.SubscribeProperties{
 		SubscriptionIdentifier: nil,
 		User:                   nil,
@@ -184,19 +201,28 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) {
 	} else {
 		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
 	}
+	return err
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
-	tokenMap := s.parseTopic(m.Topic)
-	tagStruct := domain.StdMessageStruct{
-		OwningAsset: tokenMap["EQNAME"],
-		ItemName:    tokenMap["TAGNAME"],
-		ItemValue:   string(m.Payload),
-		TagQuality:  128,
-		Err:         nil,
+
+	var tagStruct domain.StdMessageStruct
+	err := json.Unmarshal(m.Payload, &tagStruct)
+	if err == nil {
+		s.ChangeChannel <- tagStruct
+	} else {
+		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
 	}
-	s.ChangeChannel <- tagStruct
+	//tokenMap := s.parseTopic(m.Topic)
+	//tagStruct := domain.StdMessageStruct{
+	//	OwningAsset: tokenMap["EQNAME"],
+	//	ItemName:    tokenMap["TAGNAME"],
+	//	ItemValue:   string(m.Payload),
+	//	TagQuality:  128,
+	//	Err:         nil,
+	//}
+	//s.ChangeChannel <- tagStruct
 }
 
 func (s *edgeConnectorMQTT) parseTopic(topic string) map[string]string {

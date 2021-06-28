@@ -14,9 +14,9 @@ type LibreHistorianPort interface {
 	//Close is called to close the data store connection
 	Close() error
 
-	AddDataPointRaw(pointName string, tags map[string]string, fields map[string]interface{}, ts time.Time) error
+	AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error
 
-	AddEqPropDataPoint(eqId string, eqName string, propId string, propName string, ts time.Time) error
+	AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error
 
 	QueryRaw(query string) (*api.QueryTableResult, error)
 

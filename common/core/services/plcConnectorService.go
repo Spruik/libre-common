@@ -43,3 +43,27 @@ func (s *plcConnectorService) ListenForPlcTagChanges(c chan domain.StdMessageStr
 func (s *plcConnectorService) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	return s.plcConnectorPort.GetTagHistory(startTS, endTS, inTagDefs)
 }
+
+//////////////////////////////////////////////////////////////////
+type plcConnectorFactoryService struct {
+	port ports.PlcConnectorFactoryPort
+}
+
+var plcConnectorFactoryServiceInstance *plcConnectorFactoryService = nil
+
+func SetPlcConnectorFactoryServiceInstance(inst *plcConnectorFactoryService) {
+	plcConnectorFactoryServiceInstance = inst
+}
+func GetPlcConnectorFactoryServiceInstance() *plcConnectorFactoryService {
+	return plcConnectorFactoryServiceInstance
+}
+
+func NewPlcConnectorFactoryService(port ports.PlcConnectorFactoryPort) *plcConnectorFactoryService {
+	var ret = plcConnectorFactoryService{}
+	ret.port = port
+	return &ret
+}
+
+func (s *plcConnectorFactoryService) CreatePlcConnectorInstance(key string, configHook string) ports.PlcConnectorPort {
+	return s.port.CreatePlcConnectorInstance(key, configHook)
+}

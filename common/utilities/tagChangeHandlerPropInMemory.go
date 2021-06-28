@@ -28,11 +28,14 @@ func (s *tagChangeHandlerPropInMemory) Initialize() {
 
 func (s *tagChangeHandlerPropInMemory) HandleTagChange(tagData domain.StdMessageStruct, handlerContext *map[string]interface{}) error {
 	s.LogDebug("BEGIN: tagChangeHandlerPropInMemory.HandleTagChange")
-	oldVal := (*s.mgdEq).GetPropertyValue(tagData.ItemName)
-	if oldVal != nil {
-		(*handlerContext)[tagData.ItemName+"_ORIGVAL"] = oldVal
+	if tagData.ItemName != "" {
+		oldVal := (*s.mgdEq).GetPropertyValue(tagData.ItemName)
+		if oldVal != nil {
+			(*handlerContext)[tagData.ItemName+"_ORIGVAL"] = oldVal
+		}
+		return (*s.mgdEq).UpdatePropertyValue(tagData.ItemName, tagData.ItemValue)
 	}
-	return (*s.mgdEq).UpdatePropertyValue(tagData.ItemName, tagData.ItemValue)
+	return nil
 }
 
 func (s *tagChangeHandlerPropInMemory) GetAckMessage(err error) string {

@@ -156,7 +156,7 @@ func (s *managedEquipmentDefault) AcceptRequest(tagChangeHandlers *[]ports.TagCh
 		for _, handler := range *tagChangeHandlers {
 			err := handler.HandleTagChange(rqst.TagInfo, &handlerContext)
 			if err != nil {
-				s.LogErrorf("Failed to update Equipment Property from tag configProviderInternal_data %+v with error: %s", rqst.TagInfo, err)
+				s.LogErrorf("Failed to update Equipment Property from tag %+v with error: %s", rqst.TagInfo, err)
 			}
 			ackMsg += handler.GetAckMessage(err)
 		}

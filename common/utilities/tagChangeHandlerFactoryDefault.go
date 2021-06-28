@@ -20,6 +20,10 @@ func (s *tagChangeHandlerFactoryDefault) CreateHandlerInstance(key string, mgdEq
 	switch key {
 	case "TagChangeHandlerPropInMemory":
 		return NewTagChangeHandlerPropInMemory(mgdEq)
+	case "TagChangeHandlerPackMLStatus":
+		return NewTagChangeHandlerPackMLStatus(mgdEq)
+	case "TagChangeHandlerPackMLAdmin":
+		return NewTagChangeHandlerPackMLAdmin(mgdEq)
 	case "TagChangeHandlerEventEval":
 		return NewTagChangeHandlerEventEval(mgdEq,
 			services.GetLibreDataStoreServiceInstance(),

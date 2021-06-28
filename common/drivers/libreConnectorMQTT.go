@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -111,7 +112,7 @@ func (s *libreConnectorMQTT) Close() error {
 	if err == nil {
 		s.mqttClient = nil
 	}
-	s.LogInfof("%s Connection Closed\n", s.mqttClient.ClientID)
+	s.LogInfo("Libre Connection Closed\n")
 	return err
 }
 
@@ -119,7 +120,7 @@ func (s *libreConnectorMQTT) Close() error {
 func (s *libreConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	topic := s.buildTopicString(msg)
 	s.LogInfof("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
-	s.send(topic, msg.ItemValue)
+	s.send(topic, msg)
 	return nil
 }
 
@@ -176,21 +177,25 @@ func (s *libreConnectorMQTT) subscribeToTopic(topic string) {
 	}
 }
 
-func (s *libreConnectorMQTT) send(topic string, message string) {
-	pubStruct := &mqtt.Publish{
-		QoS:        0,
-		Retain:     false,
-		Topic:      topic,
-		Properties: nil,
-		Payload:    []byte(message),
-	}
-	pubResp, err := s.mqttClient.Publish(context.Background(), pubStruct)
-	if err != nil {
-		s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
+func (s *libreConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
+	jsonBytes, err := json.Marshal(message)
+	if err == nil {
+		pubStruct := &mqtt.Publish{
+			QoS:        0,
+			Retain:     false,
+			Topic:      topic,
+			Properties: nil,
+			Payload:    jsonBytes,
+		}
+		pubResp, err := s.mqttClient.Publish(context.Background(), pubStruct)
+		if err != nil {
+			s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
+		} else {
+			s.LogInfof("Published: %s to %s\n", message, topic)
+		}
 	} else {
-		s.LogInfof("Published: %s to %s\n", message, topic)
+		s.LogErrorf("mqtt publish error : failed to marshal the message %+v [%s]\n", message, err)
 	}
-
 }
 
 func (s *libreConnectorMQTT) buildTopicString(tag domain.StdMessageStruct) string {

@@ -31,11 +31,11 @@ func (s *libreHistorianService) Connect() error {
 func (s *libreHistorianService) Close() error {
 	return s.port.Close()
 }
-func (s *libreHistorianService) AddDataPointRaw(pointName string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
-	return s.port.AddDataPointRaw(pointName, tags, fields, ts)
+func (s *libreHistorianService) AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
+	return s.port.AddDataPointRaw(measurement, tags, fields, ts)
 }
-func (s *libreHistorianService) AddEqPropDataPoint(eqId string, eqName string, propId string, propName string, ts time.Time) error {
-	return s.port.AddEqPropDataPoint(eqId, eqName, propId, propName, ts)
+func (s *libreHistorianService) AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error {
+	return s.port.AddEqPropDataPoint(measurement, eqId, eqName, propId, propName, propValue, ts)
 }
 func (s *libreHistorianService) QueryRaw(query string) (*api.QueryTableResult, error) {
 	return s.port.QueryRaw(query)

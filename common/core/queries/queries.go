@@ -128,26 +128,31 @@ func GetPropertyNameForSystemAlias(txn ports.LibreDataStoreTransactionPort, syst
 }
 
 func GetAliasPropertyNameForSystem(txn ports.LibreDataStoreTransactionPort, system string, internalName string, eqName string) (string, error) {
-	q := struct {
-		QueryPropertyNameAlias []struct {
-			Property struct {
-				Name      string
-				Equipment struct {
-					Name string
-				} `graphql:"equipment(filter:{name:{eq:$eqName}})"`
-			} `graphql:"property(filter:{name:{eq:$intName}})"`
-			Alias  string
-			System string
-		} `graphql:"queryPropertyNameAlias(filter:{system: {alloftext: $system}}) @cascade "`
-	}{}
-	variables := map[string]interface{}{
-		"intName": graphql.String(internalName),
-		"eqName":  graphql.String(eqName),
-		"system":  graphql.String(system),
-	}
-	err := txn.ExecuteQuery(&q, variables)
-	if len(q.QueryPropertyNameAlias) > 0 {
-		return q.QueryPropertyNameAlias[0].Property.Name, err
+	eq, err := GetEquipmentByName(txn, eqName)
+	if err == nil {
+		var propMap map[string]domain.Property
+		propMap, err = GetAllPropertiesForEquipment(txn, eq.Id)
+		if err == nil {
+			targetProp := propMap[internalName]
+			q := struct {
+				QueryPropertyNameAlias []struct {
+					Property struct {
+						Id   string `json:"id"`
+						Name string `json:"name"`
+					} `graphql:"property(filter:{id:[$propId]})"`
+					Alias  string
+					System string
+				} `graphql:"queryPropertyNameAlias(filter:{system: {alloftext: $system}}) @cascade "`
+			}{}
+			variables := map[string]interface{}{
+				"propId": graphql.ID(targetProp.Id),
+				"system": graphql.String(system),
+			}
+			err := txn.ExecuteQuery(&q, variables)
+			if len(q.QueryPropertyNameAlias) > 0 {
+				return q.QueryPropertyNameAlias[0].Alias, err
+			}
+		}
 	}
 	return "", err
 }
@@ -219,4 +224,20 @@ func GetAllEventDefsForEquipmentAndClass(txn ports.LibreDataStoreTransactionPort
 		}
 	}
 	return fullEventDefList, err
+}
+
+func GetEquipmentElementLevels(txn ports.LibreDataStoreTransactionPort, eventDefId string) ([]string, error) {
+	var q struct {
+		Levels struct {
+			EnumValues []struct {
+				Name string `json:"name"`
+			} `json:"enumValues"`
+		} `graphql:"__type(name:\"EquipmentElementLevel\")" json:"__type"`
+	}
+	err := txn.ExecuteQuery(&q, nil)
+	ret := make([]string, 0, 0)
+	for _, j := range q.Levels.EnumValues {
+		ret = append(ret, j.Name)
+	}
+	return ret, err
 }

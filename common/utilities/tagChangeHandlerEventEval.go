@@ -58,51 +58,44 @@ func (s *tagChangeHandlerEventEval) Initialize() {
 func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStruct, handlerContext *map[string]interface{}) error {
 	s.LogDebug("BEGIN: tagChangeHandlerEventEval.HandleTagChange")
 	var err error
-	_, isValid := (*s.mgdEq).GetPropertyMap()[tagData.ItemName]
-	if isValid {
-		entry := s.tagNameToEventDefIdMap[tagData.ItemName]
-		if entry != nil {
-			for _, evtDefId := range entry {
-				var evalTrue bool
-				var evtDef *domain.EventDefinition
-				var computedFields map[string]interface{}
-				evalTrue, evtDef, computedFields, err = s.eventDefEvalIF.EvaluateEventDef(s.mgdEq, evtDefId, handlerContext)
-				if err == nil {
-					if evalTrue {
-						//update any properties that match computed fields
-						for fname, fval := range computedFields {
-							err = (*s.mgdEq).UpdatePropertyValue(fname, fmt.Sprintf("%s", fval))
-							if err != nil {
-								s.LogErrorf("Failed to add computed field %s as property of %s", fname, (*s.mgdEq).GetEquipmentName())
+	if tagData.ItemName != "" {
+		_, isValid := (*s.mgdEq).GetPropertyMap()[tagData.ItemName]
+		if isValid {
+			entry := s.tagNameToEventDefIdMap[tagData.ItemName]
+			if entry != nil {
+				for _, evtDefId := range entry {
+					var evalTrue bool
+					var evtDef *domain.EventDefinition
+					var computedFields map[string]interface{}
+					evalTrue, evtDef, computedFields, err = s.eventDefEvalIF.EvaluateEventDef(s.mgdEq, evtDefId, handlerContext)
+					if err == nil {
+						if evalTrue {
+							//update any properties that match computed fields
+							for fname, fval := range computedFields {
+								err = (*s.mgdEq).UpdatePropertyValue(fname, fmt.Sprintf("%s", fval))
+								if err != nil {
+									s.LogErrorf("Failed to add computed field %s as property of %s", fname, (*s.mgdEq).GetEquipmentName())
+								}
 							}
-						}
 
-						//if evt def type is EventLog, then create an event on the equipment
-						if evtDef.MessageClass == "EventLog" {
-							s.addEventForEquipment((*s.mgdEq).GetEquipmentId(), evtDef, computedFields)
+							//if evt def type is EventLog, then create an event on the equipment
+							if evtDef.MessageClass == "EventLog" {
+								s.addEventForEquipment((*s.mgdEq).GetEquipmentId(), evtDef, computedFields)
+							}
+							//distribute the event
+							err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
 						}
-						//distribute the event
-						err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
+					} else {
+						s.LogErrorf("Failed in EvaluateEventDef with err=%+v", err)
 					}
-				} else {
-					s.LogErrorf("Failed in EvaluateEventDef with err=%+v", err)
 				}
 			}
-		}
 
-	} else {
-		err = errors.New(fmt.Sprintf("Property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset))
+		} else {
+			err = errors.New(fmt.Sprintf("Property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset))
+		}
 	}
 	return err
-
-	//prop, err = s.storeIF.GetEquipmentProperty(tagData.OwningAsset, tagData.ItemName)
-	//if err == nil {
-	//	var cprop *domain.Property
-	//	cprop,err = s.storeIF.GetClassPropForEqProp(prop)
-	//	if err==nil {
-	//	}
-	//}
-	//return nil
 }
 
 func (s *tagChangeHandlerEventEval) GetAckMessage(err error) string {

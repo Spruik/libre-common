@@ -2,6 +2,7 @@ package utilities
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/services"
 	"github.com/Spruik/libre-logging"
@@ -34,7 +35,7 @@ func (s *eventDefDistributorDefault) DistributeEventDef(eqName string, eventDef 
 	s.LogInfof("     payload: %+v", computedPayload)
 	s.LogInfo("***********************")
 
-	//now maybe pass it to the libre connector
+	//now pass it to the libre connector
 	payloadData := eventStuct{
 		Equipment: eqName,
 		Event:     eventDef.Name,
@@ -43,12 +44,13 @@ func (s *eventDefDistributorDefault) DistributeEventDef(eqName string, eventDef 
 	jsonBytes, err := json.Marshal(&payloadData)
 	if err == nil {
 		msg := domain.StdMessageStruct{
-			OwningAsset: eqName,
-			ItemName:    eventDef.Name,
-			ItemValue:   string(jsonBytes),
-			TagQuality:  0,
-			Err:         nil,
-			Category:    "EVENT",
+			OwningAsset:  eqName,
+			ItemName:     fmt.Sprintf("%s", eventDef.MessageClass),
+			ItemValue:    string(jsonBytes),
+			ItemDataType: "STRING",
+			TagQuality:   0,
+			Err:          nil,
+			Category:     "EVENT",
 		}
 		err = services.GetLibreConnectorServiceInstance().SendStdMessage(msg)
 	}

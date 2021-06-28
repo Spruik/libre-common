@@ -24,11 +24,11 @@ func GetPlcEqNameResolverServiceInstance() *plcEqNameResolverService {
 }
 
 func (s *plcEqNameResolverService) ResolvePlcEqName(plcName string) (string, error) {
-	ret, err := s.port.ResolvePlcEqName(plcName)
-	if err == nil && ret == "" {
-		ret = plcName
+	name, err := s.port.ResolvePlcEqName(plcName)
+	if err == nil && name == "" {
+		name = plcName
 	}
-	return ret, err
+	return name, err
 }
 
 func (s *plcEqNameResolverService) ResolveStdEqName(stdName string) (string, error) {
