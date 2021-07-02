@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/ports"
+	"github.com/Spruik/libre-common/common/utilities"
+	"github.com/Spruik/libre-common/common/version"
 	"github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
 	"github.com/gorilla/mux"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -34,7 +37,7 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s.SetLoggerConfigHook("RESTAPI")
 	s.SetConfigCategory("RESTAPI")
 	s.router = mux.NewRouter().StrictSlash(true)
-	s.router.HandleFunc("/", s.homeLink)
+	s.router.HandleFunc("/", s.rootLink)
 
 	eps := libreLogger.GetRESTAPIEntryPoints()
 	for ep, f := range eps {
@@ -61,6 +64,11 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s.router.HandleFunc(ep, s.controlCmdLink)
 	s.endpoints = append(s.endpoints, ep)
 
+	//set up the Kubernetes entry points - note: not adding these to the entrypoint list because they would not be called by a user
+	s.router.HandleFunc("/home", s.homeLink)
+	s.router.HandleFunc("/readyz", s.readyzLink)
+	s.router.HandleFunc("/healthz", s.healthzLink)
+
 	return &s
 }
 
@@ -76,7 +84,7 @@ func (s *DaemonRESTServer) Shutdown() error {
 	return s.httpServer.Shutdown(context.Background())
 }
 
-func (s *DaemonRESTServer) homeLink(w http.ResponseWriter, r *http.Request) {
+func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 	s.LogDebugf("handling request to homelink from user agent %s", r.UserAgent())
 	var resp = struct {
 		DaemonName string
@@ -142,5 +150,51 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 			}
 		}
 	}
+}
 
+///////////////////////////////////////////////////////////////////////////////////
+//kubernetes REST API requirements
+func (s *DaemonRESTServer) homeLink(w http.ResponseWriter, r *http.Request) {
+	info := struct {
+		BuildTime string `json:"buildTime"`
+		Commit    string `json:"commit"`
+		Release   string `json:"release"`
+	}{
+		version.BuildTime, version.Commit, version.Release,
+	}
+
+	body, err := json.Marshal(info)
+	if err != nil {
+		log.Printf("Could not encode info data: %v", err)
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+}
+
+func (s *DaemonRESTServer) healthzLink(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *DaemonRESTServer) readyzLink(w http.ResponseWriter, r *http.Request) {
+	resp, err := s.monitoredDaemon.SubmitCommand(utilities.DaemonGetStateCommand, nil)
+	if err == nil {
+		anyInitializing := false
+		for _, val := range resp {
+			switch val.(type) {
+			case string:
+				status := fmt.Sprintf("%s", val)
+				if status == utilities.DaemonInitialState.GetStateName() {
+					anyInitializing = true
+					break
+				}
+			}
+		}
+		if anyInitializing {
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+	}
 }

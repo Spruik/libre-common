@@ -6,7 +6,11 @@ import (
 	"github.com/Spruik/libre-common/common/core/ports"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
+	"log"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type DaemonBase struct {
@@ -56,6 +60,21 @@ func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync
 }
 
 func (d *DaemonBase) Run(params map[string]interface{}) {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT)
+	go func() {
+		s := <-sigc
+		log.Printf("Daemon recieved system signal: %+v", s)
+		//try to shutdown gracefully
+		_, err := d.SubmitCommand(DaemonEndCommand, nil)
+		if err != nil {
+			log.Println("Failed graceful shutdown after system signal!")
+		}
+	}()
 	go func() {
 		if d.terminationWaitGroup != nil {
 			d.terminationWaitGroup.Add(1)
