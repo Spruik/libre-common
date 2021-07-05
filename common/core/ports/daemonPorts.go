@@ -1,7 +1,6 @@
 package ports
 
 import (
-	"github.com/Spruik/libre-common/common/core/domain"
 	"sync"
 )
 
@@ -12,7 +11,7 @@ type DaemonAdminCommand struct {
 	Results map[string]interface{}
 }
 
-type DaemonCommandFunction func(d DaemonIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error)
+type DaemonCommandFunction func(d DaemonIF, params map[string]interface{}) (map[string]interface{}, error)
 
 type DaemonIF interface {
 	Run(params map[string]interface{})
@@ -35,10 +34,12 @@ type DaemonIF interface {
 type DaemonStateIF interface {
 	GetStateName() string
 	CanExecuteCycles() bool
+	IsTerminalState() bool
 }
 
 type DaemonCommandIF interface {
 	GetCommandName() string
 	HasTargetState() bool
 	GetTargetState() DaemonStateIF
+	GetInputParamNames() []string
 }

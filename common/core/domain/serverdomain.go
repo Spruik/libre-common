@@ -62,14 +62,6 @@ const (
 	SVCRQST_TAGDATA_ACK  = "TAGDATAACK"
 )
 
-type DaemonCommandCycleEffect string
-
-const (
-	DAEMON_CMD_EFFECT_CYCLE     DaemonCommandCycleEffect = "CYCLE"
-	DAEMON_CMD_EFFECT_NOCYCLE   DaemonCommandCycleEffect = "NOCYCLE"
-	DAEMON_CMD_EFFECT_UNCHANGED DaemonCommandCycleEffect = "UNCHANGED"
-)
-
 ///////////////////////////////////////////////////
 
 func ConvertPropertyValueStringToTypedValue(propType string, rawVal interface{}) (interface{}, error) {

@@ -2,7 +2,6 @@ package utilities
 
 import (
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
@@ -60,25 +59,27 @@ func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync
 }
 
 func (d *DaemonBase) Run(params map[string]interface{}) {
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-	go func() {
-		s := <-sigc
-		log.Printf("Daemon recieved system signal: %+v", s)
-		//try to shutdown gracefully
-		_, err := d.SubmitCommand(DaemonEndCommand, nil)
-		if err != nil {
-			log.Println("Failed graceful shutdown after system signal!")
-		}
-	}()
 	go func() {
 		if d.terminationWaitGroup != nil {
 			d.terminationWaitGroup.Add(1)
 			defer func() { d.terminationWaitGroup.Done() }()
+			//if we have our termination wait group set, we must be the top level, so register the interrupts
+			sigc := make(chan os.Signal, 1)
+			signal.Notify(sigc,
+				syscall.SIGHUP,
+				syscall.SIGINT,
+				syscall.SIGTERM,
+				syscall.SIGQUIT)
+			go func() {
+				s := <-sigc
+				log.Printf("Daemon recieved system signal: %+v", s)
+				//try to shutdown gracefully
+				_, err := d.SubmitCommand(DaemonEndCommand, nil)
+				if err != nil {
+					log.Println("Failed graceful shutdown after system signal!")
+				}
+			}()
+
 		}
 		err := d.initializationFxn(d, params)
 		if err != nil {
@@ -91,27 +92,24 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 		var processed = 0
 		for run {
 			d.LogDebug(d.name, "calling acceptCommand while in state=", d.state)
-			var cmdCycleEffect domain.DaemonCommandCycleEffect
-			cmdCycleEffect, err = d.acceptCommand()
+			err = d.acceptCommand()
 			if err != nil {
 				panic(err)
 			}
-			switch cmdCycleEffect {
-			case domain.DAEMON_CMD_EFFECT_CYCLE:
-				run = true
-			case domain.DAEMON_CMD_EFFECT_NOCYCLE:
+			if d.state.IsTerminalState() {
+				d.LogInfo(d.name, "latest command resulted in a terminal state - ending", d.state)
 				run = false
-			case domain.DAEMON_CMD_EFFECT_UNCHANGED:
-			}
-			d.LogDebug(d.name, "consdering a cycle ", run, d.state)
-			if run && d.state.CanExecuteCycles() {
-				d.LogDebug(d.name, "starting a cycle")
-				processed, err = d.oneProcessingCycleFxn(d)
-				if err != nil {
-					panic(err)
-				}
-				if processed == 0 {
-					d.LogDebug(d.name, "Nothing processed this loop")
+			} else {
+				d.LogDebug(d.name, "considering a cycle ", run, d.state)
+				if run && d.state.CanExecuteCycles() {
+					d.LogDebug(d.name, "starting a cycle")
+					processed, err = d.oneProcessingCycleFxn(d)
+					if err != nil {
+						panic(err)
+					}
+					if processed == 0 {
+						d.LogDebug(d.name, "Nothing processed this loop")
+					}
 				}
 			}
 		}
@@ -120,11 +118,11 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 		if err != nil {
 			panic(err)
 		}
+		d.LogInfof("%s run ends", d.name)
 	}()
 }
 
-func (d *DaemonBase) acceptCommand() (domain.DaemonCommandCycleEffect, error) {
-	var cycleEffect domain.DaemonCommandCycleEffect
+func (d *DaemonBase) acceptCommand() error {
 	var err error
 	d.LogDebug(d.name, "checking for command")
 	select {
@@ -133,54 +131,48 @@ func (d *DaemonBase) acceptCommand() (domain.DaemonCommandCycleEffect, error) {
 		if d.parentWaitGroup != nil {
 			d.LogDebug(d.name, "incrementing parent waitgroup", d.parentWaitGroup)
 			d.parentWaitGroup.Add(1)
+			defer d.parentWaitGroup.Done()
 		}
 		var resp = make(map[string]interface{})
 		cmdFxn := d.controlFxns[chgCmd.Cmd]
 		if cmdFxn != nil {
-			resp, cycleEffect, err = cmdFxn(d, chgCmd.Params)
+			resp, err = cmdFxn(d, chgCmd.Params)
 			if err != nil {
 				panic(err)
 			}
-			d.LogDebug(d.name, "processed command message", chgCmd.Cmd, cycleEffect)
-			if len(d.daemonChildren) > 0 {
-				for _, child := range d.daemonChildren {
-					d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd)
-					childresp, err := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
-					if err != nil {
-						panic(err)
-					}
-					if childresp != nil {
-						for key, val := range childresp {
-							resp[key] = val
-						}
-					}
-					d.LogDebug(d.name, "sent command message to child", child.GetName(), chgCmd.Cmd, cycleEffect)
+			d.LogDebug(d.name, "processed command message", chgCmd.Cmd)
+		}
+		if len(d.daemonChildren) > 0 {
+			for _, child := range d.daemonChildren {
+				d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd)
+				childresp, err := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
+				if err != nil {
+					panic(err)
 				}
-				d.LogDebug(d.name, "waiting for child completion", chgCmd.Cmd)
-				d.localWaitGroup.Wait()
+				if childresp != nil {
+					for key, val := range childresp {
+						resp[key] = val
+					}
+				}
+				d.LogDebug(d.name, "sent command message to child", child.GetName(), chgCmd.Cmd)
 			}
-			if chgCmd.Cmd.HasTargetState() {
-				d.LogDebug("SETTING TARGET STATE TO ", chgCmd.Cmd.GetTargetState())
-				d.SetState(chgCmd.Cmd.GetTargetState())
-			}
-			if len(resp) > 0 {
-				chgCmd.Results = resp
-			} else {
-				chgCmd.Results = nil
-			}
+			d.LogDebug(d.name, "waiting for child completion", chgCmd.Cmd)
+			d.localWaitGroup.Wait()
+		}
+		if chgCmd.Cmd.HasTargetState() {
+			d.LogDebug("SETTING TARGET STATE TO ", chgCmd.Cmd.GetTargetState())
+			d.SetState(chgCmd.Cmd.GetTargetState())
+		}
+		if len(resp) > 0 {
+			chgCmd.Results = resp
 		} else {
-			chgCmd.Results = map[string]interface{}{d.GetName(): "Command not implemented"}
+			chgCmd.Results = nil
 		}
 		d.adminChannel <- chgCmd
-		if d.parentWaitGroup != nil {
-			d.LogDebug(d.name, "telling parent wait group it's done ")
-			d.parentWaitGroup.Done()
-		}
 	default:
-		cycleEffect = domain.DAEMON_CMD_EFFECT_UNCHANGED
 	}
-	d.LogDebug(d.name, "done checking for command ", cycleEffect, err)
-	return cycleEffect, err
+	d.LogDebugf(d.name, "done checking for command.  err=%s ", err)
+	return err
 }
 
 func (d *DaemonBase) SetState(state ports.DaemonStateIF) {
@@ -189,14 +181,14 @@ func (d *DaemonBase) SetState(state ports.DaemonStateIF) {
 func (d *DaemonBase) GetState() ports.DaemonStateIF {
 	return d.state
 }
-func (d *DaemonBase) ExecuteCommandFxn(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error) {
+func (d *DaemonBase) ExecuteCommandFxn(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, error) {
 	fxn := d.controlFxns[cmd]
 	if fxn != nil {
 		return fxn(d, params)
 	} else {
 		panic("state change function not found")
 	}
-	return nil, domain.DAEMON_CMD_EFFECT_UNCHANGED, nil
+	return nil, nil
 }
 func (d *DaemonBase) GetName() string {
 	return d.name
@@ -227,30 +219,40 @@ func (d *DaemonBase) AddDaemonChild(DaemonChild ports.DaemonIF) {
 	d.daemonChildren = append(d.daemonChildren, DaemonChild)
 }
 func (d *DaemonBase) SubmitCommand(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, error) {
+	d.LogDebugf("%s SubmitCommand sending %s", d.name, cmd.GetCommandName())
 	d.adminChannel <- ports.DaemonAdminCommand{
 		Cmd:     cmd,
 		Params:  params,
 		Results: nil,
 		Err:     nil,
 	}
+	d.LogDebugf("%s SubmitCommand waiting for response to %s", d.name, cmd.GetCommandName())
 	respObj := <-d.adminChannel
+	d.LogDebugf("%s SubmitCommand received response to %s", d.name, cmd.GetCommandName())
 	return respObj.Results, respObj.Err
 }
 func (d *DaemonBase) SetTerminationWaitGroup(wg *sync.WaitGroup) {
 	d.terminationWaitGroup = wg
 }
 func (d *DaemonBase) GetCommands() map[ports.DaemonCommandIF]ports.DaemonCommandFunction {
-	return d.controlFxns
+	ret := d.controlFxns
+	for _, dchild := range d.daemonChildren {
+		for i, j := range dchild.GetCommands() {
+			ret[i] = j
+		}
+	}
+	return ret
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 type DaemonCommand struct {
 	name        string
 	targetState ports.DaemonStateIF
+	inParams    []string
 }
 
-func NewDaemonCommand(name string, state ports.DaemonStateIF) *DaemonCommand {
-	return &DaemonCommand{name: name, targetState: state}
+func NewDaemonCommand(name string, state ports.DaemonStateIF, inParams []string) *DaemonCommand {
+	return &DaemonCommand{name: name, targetState: state, inParams: inParams}
 }
 func (s *DaemonCommand) GetCommandName() string {
 	return s.name
@@ -265,22 +267,27 @@ func (s *DaemonCommand) GetTargetState() ports.DaemonStateIF {
 		panic("GetTargetState called when internal pointer is nil")
 	}
 }
+func (s *DaemonCommand) GetInputParamNames() []string {
+	return s.inParams
+}
 
-var DaemonRunCommand = NewDaemonCommand("Run", DaemonRunningState)
-var DaemonPauseCommand = NewDaemonCommand("Pause", DaemonPausedState)
-var DaemonEndCommand = NewDaemonCommand("End", DaemonEndState)
-var DaemonGetStateCommand = NewDaemonCommand("GetState", nil)
+var DaemonRunCommand = NewDaemonCommand("Run", DaemonRunningState, nil)
+var DaemonPauseCommand = NewDaemonCommand("Pause", DaemonPausedState, nil)
+var DaemonEndCommand = NewDaemonCommand("End", DaemonEndState, nil)
+var DaemonGetStateCommand = NewDaemonCommand("GetState", nil, nil)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 type DaemonState struct {
 	name       string
 	canExecute bool
+	isTerminal bool
 }
 
-func NewDaemonState(name string, canExecute bool) *DaemonState {
+func NewDaemonState(name string, canExecute bool, isTerminal bool) *DaemonState {
 	return &DaemonState{
 		name:       name,
 		canExecute: canExecute,
+		isTerminal: isTerminal,
 	}
 }
 func (s *DaemonState) GetStateName() string {
@@ -289,11 +296,14 @@ func (s *DaemonState) GetStateName() string {
 func (s *DaemonState) CanExecuteCycles() bool {
 	return s.canExecute
 }
+func (s *DaemonState) IsTerminalState() bool {
+	return s.isTerminal
+}
 
-var DaemonInitialState = NewDaemonState("INITIAL", false)
-var DaemonRunningState = NewDaemonState("RUNNING", true)
-var DaemonPausedState = NewDaemonState("PAUSED", false)
-var DaemonEndState = NewDaemonState("ENDED", false)
+var DaemonInitialState = NewDaemonState("INITIAL", false, false)
+var DaemonRunningState = NewDaemonState("RUNNING", true, false)
+var DaemonPausedState = NewDaemonState("PAUSED", false, false)
+var DaemonEndState = NewDaemonState("ENDED", false, true)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 type standardFunctions struct {
@@ -316,20 +326,20 @@ func (s *standardFunctions) EmptyCycleFunc(d ports.DaemonIF) (int, error) {
 	//do nothing
 	return 0, nil
 }
-func (s *standardFunctions) StandardRunFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error) {
+func (s *standardFunctions) StandardRunFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, domain.DAEMON_CMD_EFFECT_CYCLE, nil
+	return nil, nil
 }
-func (s *standardFunctions) StandardEndFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error) {
+func (s *standardFunctions) StandardEndFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, domain.DAEMON_CMD_EFFECT_NOCYCLE, nil
+	return nil, nil
 }
-func (s *standardFunctions) StandardPauseFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error) {
+func (s *standardFunctions) StandardPauseFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, domain.DAEMON_CMD_EFFECT_CYCLE, nil
+	return nil, nil
 }
-func (s *standardFunctions) GetStateFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, domain.DaemonCommandCycleEffect, error) {
+func (s *standardFunctions) GetStateFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	var resp = make(map[string]interface{})
 	resp[d.GetName()] = d.GetState().GetStateName()
-	return resp, domain.DAEMON_CMD_EFFECT_UNCHANGED, nil
+	return resp, nil
 }

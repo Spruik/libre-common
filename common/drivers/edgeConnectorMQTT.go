@@ -3,7 +3,6 @@ package drivers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
@@ -22,9 +21,9 @@ type edgeConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttClient    *mqtt.Client
-	ChangeChannel chan domain.StdMessageStruct
-	config        map[string]string
+	mqttClient     *mqtt.Client
+	ChangeChannels map[string]chan domain.StdMessageStruct
+	config         map[string]string
 
 	topicTemplate    string
 	topicParseRegExp *regexp.Regexp
@@ -36,6 +35,7 @@ func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
 	s := edgeConnectorMQTT{
 		mqttClient: nil,
 	}
+	s.ChangeChannels = make(map[string]chan domain.StdMessageStruct)
 	s.SetConfigCategory("edgeConnectorMQTT")
 	s.SetLoggerConfigHook("EDGEMQTT")
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/Report/<TAGNAME>")
@@ -90,17 +90,16 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 
 	connAck, err = client.Connect(context.Background(), connStruct)
 	if err != nil {
-		return err
+		s.LogErrorf("Connect returned err=%s", s)
 	}
 	if connAck.ReasonCode != 0 {
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", s.mqttClient.ClientID, server, connAck.ReasonCode, connAck.Properties.ReasonString)
+		msg := fmt.Sprintf("%+v Failed to connect to %+v : %d - %s\n", s.mqttClient, server, connAck.ReasonCode, connAck.Properties.ReasonString)
 		s.LogError(msg)
-		return errors.New(msg)
 	} else {
 		s.mqttClient = client
 		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
 	}
-	return nil
+	return err
 }
 
 //Close implements the interface by closing the MQTT client
@@ -137,7 +136,9 @@ func (s *edgeConnectorMQTT) WriteTags(outTagDefs []domain.StdMessageStruct) []do
 //ListenForPlcTagChanges implements the interface by subscribing to topics and waiting for related messages
 func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
 	s.LogDebug("BEGIN ListenForEdgeTagChanges")
-	s.ChangeChannel = c
+	clientName := fmt.Sprintf("%s", changeFilter["Client"])
+	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
+	s.ChangeChannels[clientName] = c
 	//declare the handler for received messages
 	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
@@ -210,7 +211,7 @@ func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)
 	if err == nil {
-		s.ChangeChannel <- tagStruct
+		s.ChangeChannels[tagStruct.OwningAsset] <- tagStruct
 	} else {
 		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
 	}

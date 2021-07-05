@@ -60,6 +60,17 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s.router.HandleFunc(ep, s.controlLink)
 	s.endpoints = append(s.endpoints, ep)
 
+	for cmd, _ := range s.monitoredDaemon.GetCommands() {
+		ep = fmt.Sprintf("/%s/control/{cmd}", s.monitoredDaemon.GetName())
+		if cmd.GetInputParamNames() != nil {
+			for _, p := range cmd.GetInputParamNames() {
+				ep += fmt.Sprintf("/{%s}", p)
+			}
+		}
+		s.router.HandleFunc(ep, s.controlCmdLink)
+		s.endpoints = append(s.endpoints, ep)
+
+	}
 	ep = fmt.Sprintf("/%s/control/{cmd}", s.monitoredDaemon.GetName())
 	s.router.HandleFunc(ep, s.controlCmdLink)
 	s.endpoints = append(s.endpoints, ep)

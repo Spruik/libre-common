@@ -3,7 +3,6 @@ package drivers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
@@ -86,17 +85,16 @@ func (s *libreConnectorMQTT) Connect() error {
 
 	connAck, err = client.Connect(context.Background(), connStruct)
 	if err != nil {
-		return err
+		s.LogErrorf("Connect returned err=%s", err)
 	}
 	if connAck.ReasonCode != 0 {
 		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", s.mqttClient.ClientID, server, connAck.ReasonCode, connAck.Properties.ReasonString)
 		s.LogError(msg)
-		return errors.New(msg)
 	} else {
 		s.mqttClient = client
 		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
 	}
-	return nil
+	return err
 }
 
 //Close implements the interface by closing the MQTT client

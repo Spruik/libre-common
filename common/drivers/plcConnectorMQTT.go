@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
@@ -11,6 +10,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +25,8 @@ type plcConnectorMQTT struct {
 
 	topicTemplateList    []string
 	topicParseRegExpList []*regexp.Regexp
+
+	listenMutex sync.Mutex
 }
 
 func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
@@ -33,6 +35,7 @@ func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
 		topicTemplateList:    make([]string, 0, 0),
 		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
+		listenMutex:          sync.Mutex{},
 	}
 	s.SetConfigCategory(configCategoryName)
 	s.SetLoggerConfigHook("PlcConnectorMQTT")
@@ -100,17 +103,22 @@ func (s *plcConnectorMQTT) Connect() error {
 
 	connAck, err = client.Connect(context.Background(), connStruct)
 	if err != nil {
-		return err
+		s.LogErrorf("Connect return err=%s", err)
 	}
 	if connAck.ReasonCode != 0 {
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", s.mqttClient.ClientID, server, connAck.ReasonCode, connAck.Properties.ReasonString)
+		var cid string
+		if s.mqttClient == nil {
+			cid = "nil clientid"
+		} else {
+			cid = s.mqttClient.ClientID
+		}
+		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
 		s.LogError("Plc", msg)
-		return errors.New(msg)
 	} else {
 		s.mqttClient = client
 		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
 	}
-	return nil
+	return err
 }
 
 //Close implements the interface by closing the MQTT client
