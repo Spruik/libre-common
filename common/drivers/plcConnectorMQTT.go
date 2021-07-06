@@ -44,10 +44,10 @@ func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 		for _, child := range tmplStanza.Children {
 			s.topicTemplateList = append(s.topicTemplateList, child.Value)
 			topicRE := "^" + child.Value + "$"
+			topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P{{{EQNAME}}}[A-Za-z0-9_\\/]*)", -1)
 			topicRE = strings.Replace(topicRE, "<", "(?P<", -1)
 			topicRE = strings.Replace(topicRE, ">", ">[A-Za-z0-9_]*)", -1)
-			//topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_]*)", -1)
-			//topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
+			topicRE = strings.Replace(topicRE, "{{{EQNAME}}}", "<EQNAME>", -1)
 			s.topicParseRegExpList = append(s.topicParseRegExpList, regexp.MustCompile(topicRE))
 		}
 	}
