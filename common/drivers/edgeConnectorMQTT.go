@@ -23,6 +23,7 @@ type edgeConnectorMQTT struct {
 
 	mqttClient     *mqtt.Client
 	ChangeChannels map[string]chan domain.StdMessageStruct
+	singleChannel  chan domain.StdMessageStruct
 	config         map[string]string
 
 	topicTemplate    string
@@ -42,7 +43,7 @@ func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
 	topicRE := s.topicTemplate
-	topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_]*)", -1)
+	topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_\\/]*)", -1)
 	topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
 	s.topicParseRegExp = regexp.MustCompile(topicRE)
 	return &s
@@ -136,9 +137,27 @@ func (s *edgeConnectorMQTT) WriteTags(outTagDefs []domain.StdMessageStruct) []do
 //ListenForPlcTagChanges implements the interface by subscribing to topics and waiting for related messages
 func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
 	s.LogDebug("BEGIN ListenForEdgeTagChanges")
-	clientName := fmt.Sprintf("%s", changeFilter["Client"])
+	var clientName string
+	fltrClient, exists := changeFilter["Client"]
+	if exists {
+		clientName = fmt.Sprintf("%s", fltrClient)
+	} else {
+		clientName = ""
+	}
+	if clientName == "" {
+		if s.singleChannel == nil {
+			s.singleChannel = c
+		} else {
+			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+		}
+	} else {
+		if s.singleChannel == nil {
+			s.ChangeChannels[clientName] = c
+		} else {
+			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+		}
+	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
-	s.ChangeChannels[clientName] = c
 	//declare the handler for received messages
 	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
@@ -211,7 +230,11 @@ func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)
 	if err == nil {
-		s.ChangeChannels[tagStruct.OwningAsset] <- tagStruct
+		if s.singleChannel == nil {
+			s.ChangeChannels[tagStruct.OwningAsset] <- tagStruct
+		} else {
+			s.singleChannel <- tagStruct
+		}
 	} else {
 		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
 	}
