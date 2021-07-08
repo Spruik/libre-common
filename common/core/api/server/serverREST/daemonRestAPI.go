@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-common/common/utilities"
 	"github.com/Spruik/libre-common/common/version"
 	"github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
@@ -190,6 +189,8 @@ func (s *DaemonRESTServer) healthzLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *DaemonRESTServer) readyzLink(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	/*
 	resp, err := s.monitoredDaemon.SubmitCommand(utilities.DaemonGetStateCommand, nil)
 	if err == nil {
 		anyInitializing := false
@@ -208,5 +209,9 @@ func (s *DaemonRESTServer) readyzLink(w http.ResponseWriter, r *http.Request) {
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
+	} else {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 	}
+
+	 */
 }
