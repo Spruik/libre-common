@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
@@ -9,6 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,7 +46,7 @@ func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 		for _, child := range tmplStanza.Children {
 			s.topicTemplateList = append(s.topicTemplateList, child.Value)
 			topicRE := "^" + child.Value + "$"
-			topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P{{{EQNAME}}}[A-Za-z0-9_\\/]*)", -1)
+			topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P{{{EQNAME}}}[A-Za-z0-9_\\/\\-]*)", -1)
 			topicRE = strings.Replace(topicRE, "<", "(?P<", -1)
 			topicRE = strings.Replace(topicRE, ">", ">[A-Za-z0-9_]*)", -1)
 			topicRE = strings.Replace(topicRE, "{{{EQNAME}}}", "<EQNAME>", -1)
@@ -62,20 +64,33 @@ func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *plcConnectorMQTT) Connect() error {
 	var conn net.Conn
+	var useTlsStr string
+	var useTls bool
 	var connAck *mqtt.Connack
 	var err error
 	var server, user, pwd, svcName string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+		if useTlsStr, err = s.GetConfigItemWithDefault("MQTT_USE_TLS", "false"); err == nil {
 			if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+					svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				}
 			}
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for libreConnectorMQTT")
+		panic("Failed to find configuration data for MQTT connection")
 	}
 
+	useTls, err = strconv.ParseBool(useTlsStr)
+	if err != nil {
+		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
+	}
+	if useTls {
+		conn, err = tls.Dial("tcp", server, nil)
+	} else {
+		conn, err = net.Dial("tcp", server)
+	}
 	conn, err = net.Dial("tcp", server)
 	if err != nil {
 

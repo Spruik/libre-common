@@ -148,8 +148,9 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 			resp, err := s.monitoredDaemon.SubmitCommand(targetCommand, params)
 			if err == nil {
 				if resp != nil {
+					topResp := map[string]interface{}{s.monitoredDaemon.GetName(): resp}
 					var respBytes []byte
-					respBytes, err = json.Marshal(resp)
+					respBytes, err = json.MarshalIndent(topResp, "", "   ")
 					if err == nil {
 						_, _ = fmt.Fprintln(w, string(respBytes))
 					}

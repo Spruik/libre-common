@@ -5,11 +5,11 @@ import (
 	"github.com/Spruik/libre-common/common/core/ports"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type DaemonBase struct {
@@ -24,9 +24,10 @@ type DaemonBase struct {
 	cleanupFxn            func(d ports.DaemonIF, params map[string]interface{}) error
 	daemonChildren        []ports.DaemonIF
 	parentWaitGroup       *sync.WaitGroup
-	localWaitGroup        *sync.WaitGroup
+	localWaitGroup        sync.WaitGroup
 	adminChannel          chan ports.DaemonAdminCommand
 	terminationWaitGroup  *sync.WaitGroup
+	commandMutex          sync.Mutex
 }
 
 func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync.WaitGroup, configHook string) *DaemonBase {
@@ -52,9 +53,10 @@ func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync
 	d.oneProcessingCycleFxn = stdFxns.EmptyCycleFunc
 	d.cleanupFxn = stdFxns.StandardCleanupFunc
 	d.daemonChildren = make([]ports.DaemonIF, 0.0)
-	d.localWaitGroup = &sync.WaitGroup{}
+	d.localWaitGroup = sync.WaitGroup{}
 	d.adminChannel = make(chan ports.DaemonAdminCommand)
 	d.terminationWaitGroup = nil
+	d.commandMutex = sync.Mutex{}
 	return &d
 }
 
@@ -62,7 +64,10 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 	go func() {
 		if d.terminationWaitGroup != nil {
 			d.terminationWaitGroup.Add(1)
-			defer func() { d.terminationWaitGroup.Done() }()
+			defer func() {
+				d.LogInfo("marking termination wait group done")
+				d.terminationWaitGroup.Done()
+			}()
 			//if we have our termination wait group set, we must be the top level, so register the interrupts
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc,
@@ -72,12 +77,14 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 				syscall.SIGQUIT)
 			go func() {
 				s := <-sigc
-				log.Printf("Daemon recieved system signal: %+v", s)
+				d.LogInfof("Notify recieved system signal: %+v", s)
 				//try to shutdown gracefully
+				d.LogInfof("sending END command to %s Daemon ", d.name)
 				_, err := d.SubmitCommand(DaemonEndCommand, nil)
 				if err != nil {
-					log.Println("Failed graceful shutdown after system signal!")
+					d.LogInfof("%s Failed graceful shutdown after system signal!", d.name)
 				}
+				d.LogInfof("Done sending END command to %s Daemon ", d.name)
 			}()
 
 		}
@@ -133,8 +140,11 @@ func (d *DaemonBase) acceptCommand() error {
 			d.parentWaitGroup.Add(1)
 			defer d.parentWaitGroup.Done()
 		}
-		var resp = make(map[string]interface{})
+		var resp map[string]interface{}
+		d.LogDebugf("%s looking for a function to implement %s where map is: %+v", d.name, chgCmd.Cmd.GetCommandName(), d.formatControlFxnMap())
 		cmdFxn := d.controlFxns[chgCmd.Cmd]
+		d.LogDebugf("%s looked for a function to implement %s where map is: %+v", d.name, chgCmd.Cmd.GetCommandName(), d.formatControlFxnMap())
+		d.LogDebugf("%s found: %+v", d.name, cmdFxn)
 		if cmdFxn != nil {
 			resp, err = cmdFxn(d, chgCmd.Params)
 			if err != nil {
@@ -143,6 +153,7 @@ func (d *DaemonBase) acceptCommand() error {
 			d.LogDebug(d.name, "processed command message", chgCmd.Cmd)
 		}
 		if len(d.daemonChildren) > 0 {
+			d.LogDebugf("%s start sending %s command to children with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
 			for _, child := range d.daemonChildren {
 				d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd)
 				childresp, err := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
@@ -150,14 +161,13 @@ func (d *DaemonBase) acceptCommand() error {
 					panic(err)
 				}
 				if childresp != nil {
-					for key, val := range childresp {
-						resp[key] = val
-					}
+					resp[child.GetName()] = childresp
 				}
 				d.LogDebug(d.name, "sent command message to child", child.GetName(), chgCmd.Cmd)
 			}
-			d.LogDebug(d.name, "waiting for child completion", chgCmd.Cmd)
+			d.LogDebugf("%s waiting for child completion of %s with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
 			d.localWaitGroup.Wait()
+			d.LogDebugf("%s done waiting for child completion of %s with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
 		}
 		if chgCmd.Cmd.HasTargetState() {
 			d.LogDebug("SETTING TARGET STATE TO ", chgCmd.Cmd.GetTargetState())
@@ -169,12 +179,19 @@ func (d *DaemonBase) acceptCommand() error {
 			chgCmd.Results = nil
 		}
 		d.adminChannel <- chgCmd
-	default:
+	case <-time.After(time.Second):
 	}
 	d.LogDebugf(d.name, "done checking for command.  err=%s ", err)
 	return err
 }
 
+func (d *DaemonBase) formatControlFxnMap() string {
+	var ret = ""
+	for key, val := range d.controlFxns {
+		ret += fmt.Sprintf("%s:%+v ", key.GetCommandName(), val)
+	}
+	return ret
+}
 func (d *DaemonBase) SetState(state ports.DaemonStateIF) {
 	d.state = state
 }
@@ -209,26 +226,30 @@ func (d *DaemonBase) SetCleanupFxn(fxn func(d ports.DaemonIF, params map[string]
 	d.cleanupFxn = fxn
 }
 func (d *DaemonBase) AddCommandFxn(cmd ports.DaemonCommandIF, fxn ports.DaemonCommandFunction) {
+	d.LogInfof("%s ADDING COMMAND FUNCTION FOR %s", d.name, cmd.GetCommandName())
 	d.controlFxns[cmd] = fxn
 }
 func (d *DaemonBase) RemoveCommandFxn(cmd ports.DaemonCommandIF) {
 	d.controlFxns[cmd] = nil
 }
 func (d *DaemonBase) AddDaemonChild(DaemonChild ports.DaemonIF) {
-	DaemonChild.SetWaitGroup(d.localWaitGroup)
+	DaemonChild.SetWaitGroup(&d.localWaitGroup)
 	d.daemonChildren = append(d.daemonChildren, DaemonChild)
 }
 func (d *DaemonBase) SubmitCommand(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, error) {
-	d.LogDebugf("%s SubmitCommand sending %s", d.name, cmd.GetCommandName())
+	d.LogDebugf("SubmitCommand called to send %s to %s ", cmd.GetCommandName(), d.name)
+	d.commandMutex.Lock()
+	defer d.commandMutex.Unlock()
 	d.adminChannel <- ports.DaemonAdminCommand{
 		Cmd:     cmd,
 		Params:  params,
 		Results: nil,
 		Err:     nil,
 	}
-	d.LogDebugf("%s SubmitCommand waiting for response to %s", d.name, cmd.GetCommandName())
+	d.LogDebugf("SubmitCommand waiting for response to %s from %s", cmd.GetCommandName(), d.name)
 	respObj := <-d.adminChannel
-	d.LogDebugf("%s SubmitCommand received response to %s", d.name, cmd.GetCommandName())
+	d.LogDebugf("SubmitCommand received response to %s from %s", cmd.GetCommandName(), d.name)
+	//return map[string]interface{}{d.name: respObj.Results}, respObj.Err
 	return respObj.Results, respObj.Err
 }
 func (d *DaemonBase) SetTerminationWaitGroup(wg *sync.WaitGroup) {
@@ -328,18 +349,18 @@ func (s *standardFunctions) EmptyCycleFunc(d ports.DaemonIF) (int, error) {
 }
 func (s *standardFunctions) StandardRunFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, nil
+	return map[string]interface{}{}, nil
 }
 func (s *standardFunctions) StandardEndFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, nil
+	return map[string]interface{}{}, nil
 }
 func (s *standardFunctions) StandardPauseFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	//do nothing
-	return nil, nil
+	return map[string]interface{}{}, nil
 }
 func (s *standardFunctions) GetStateFxn(d ports.DaemonIF, params map[string]interface{}) (map[string]interface{}, error) {
 	var resp = make(map[string]interface{})
-	resp[d.GetName()] = d.GetState().GetStateName()
+	resp["State"] = d.GetState().GetStateName()
 	return resp, nil
 }

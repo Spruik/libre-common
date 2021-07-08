@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -10,6 +11,7 @@ import (
 	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -56,27 +58,46 @@ func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 	var conn net.Conn
+	var useTlsStr string
+	var useTls bool
 	var connAck *mqtt.Connack
 	var err error
+	var server, user, pwd, svcName string
+	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
+		if useTlsStr, err = s.GetConfigItemWithDefault("MQTT_USE_TLS", "false"); err == nil {
+			if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
+				if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+					svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				}
+			}
+		}
+	}
+	if err != nil {
+		panic("Failed to find configuration data for MQTT connection")
+	}
 
-	server, err := s.GetConfigItem("MQTT_SERVER")
+	useTls, err = strconv.ParseBool(useTlsStr)
+	if err != nil {
+		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for edgeConnectorMQTT: %s", useTlsStr))
+	}
+	if useTls {
+		conn, err = tls.Dial("tcp", server, nil)
+	} else {
+		conn, err = net.Dial("tcp", server)
+	}
 	conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
 		return err
 	}
 
 	client := mqtt.NewClient()
 	client.Conn = conn
 
-	user, err := s.GetConfigItem("MQTT_USER")
-	pwd, err := s.GetConfigItem("MQTT_PWD")
-	svcName, err := s.GetConfigItem("MQTT_SVC_NAME")
-
 	connStruct := &mqtt.Connect{
-		KeepAlive:  30,
-		ClientID:   svcName,
+		KeepAlive:  300,
+		ClientID:   fmt.Sprintf("%v", svcName),
 		CleanStart: true,
 		Username:   user,
 		Password:   []byte(pwd),
@@ -91,11 +112,17 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 
 	connAck, err = client.Connect(context.Background(), connStruct)
 	if err != nil {
-		s.LogErrorf("Connect returned err=%s", s)
+		s.LogErrorf("Connect return err=%s", err)
 	}
 	if connAck.ReasonCode != 0 {
-		msg := fmt.Sprintf("%+v Failed to connect to %+v : %d - %s\n", s.mqttClient, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError(msg)
+		var cid string
+		if s.mqttClient == nil {
+			cid = "nil clientid"
+		} else {
+			cid = s.mqttClient.ClientID
+		}
+		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
+		s.LogError("Plc", msg)
 	} else {
 		s.mqttClient = client
 		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)

@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -9,6 +10,7 @@ import (
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -45,18 +47,32 @@ func NewLibreConnectorMQTT(configCategoryName string) *libreConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *libreConnectorMQTT) Connect() error {
 	var conn net.Conn
+	var useTlsStr string
+	var useTls bool
 	var connAck *mqtt.Connack
 	var err error
 	var server, user, pwd, svcName string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+		if useTlsStr, err = s.GetConfigItemWithDefault("MQTT_USE_TLS", "false"); err == nil {
 			if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+					svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				}
 			}
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for libreConnectorMQTT")
+		panic("Failed to find configuration data for MQTT connection")
+	}
+
+	useTls, err = strconv.ParseBool(useTlsStr)
+	if err != nil {
+		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for libreConnectorMQTT: %s", useTlsStr))
+	}
+	if useTls {
+		conn, err = tls.Dial("tcp", server, nil)
+	} else {
+		conn, err = net.Dial("tcp", server)
 	}
 	conn, err = net.Dial("tcp", server)
 	if err != nil {
@@ -69,7 +85,7 @@ func (s *libreConnectorMQTT) Connect() error {
 	client.Conn = conn
 
 	connStruct := &mqtt.Connect{
-		KeepAlive:  30,
+		KeepAlive:  300,
 		ClientID:   fmt.Sprintf("%v", svcName),
 		CleanStart: true,
 		Username:   user,
@@ -85,11 +101,17 @@ func (s *libreConnectorMQTT) Connect() error {
 
 	connAck, err = client.Connect(context.Background(), connStruct)
 	if err != nil {
-		s.LogErrorf("Connect returned err=%s", err)
+		s.LogErrorf("Connect return err=%s", err)
 	}
 	if connAck.ReasonCode != 0 {
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", s.mqttClient.ClientID, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError(msg)
+		var cid string
+		if s.mqttClient == nil {
+			cid = "nil clientid"
+		} else {
+			cid = s.mqttClient.ClientID
+		}
+		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
+		s.LogError("Plc", msg)
 	} else {
 		s.mqttClient = client
 		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)

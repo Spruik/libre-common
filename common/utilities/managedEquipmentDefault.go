@@ -94,14 +94,19 @@ func getAllPropertiesForEquipment(txn ports.LibreDataStoreTransactionPort, eqId 
 }
 
 func (s *managedEquipmentDefault) UpdatePropertyValue(propName string, propValue interface{}) error {
-	pd := s.props[propName]
-	val, err := domain.ConvertPropertyValueStringToTypedValue(pd.DataType, propValue)
-	if err == nil {
-		pd.Value = val
-		pd.LastUpdate = time.Now()
-		s.props[propName] = pd
+	pd, exists := s.props[propName]
+	if exists {
+		val, err := domain.ConvertPropertyValueStringToTypedValue(pd.DataType, propValue)
+		if err == nil {
+			pd.Value = val
+			pd.LastUpdate = time.Now()
+			s.props[propName] = pd
+		}
+		s.LogInfof("Property update: %s %+v (%T) @ %s", propName, pd.Value, pd.Value, pd.LastUpdate)
+	} else {
+		//choosing to ignore updates for unknown properties (event evaluator attempts to update payload references)
+		s.LogDebugf("ignoring update request for unknown property: %s=%s", propName, propValue)
 	}
-	s.LogInfof("Property update: %s %+v (%T) @ %s", propName, pd.Value, pd.Value, pd.LastUpdate)
 	return nil
 }
 
