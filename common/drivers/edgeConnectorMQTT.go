@@ -85,7 +85,7 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
-	conn, err = net.Dial("tcp", server)
+	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
 		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
