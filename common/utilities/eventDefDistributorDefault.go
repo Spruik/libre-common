@@ -24,7 +24,7 @@ type eventStuct struct {
 	Payload   map[string]interface{}
 }
 
-func (s *eventDefDistributorDefault) DistributeEventDef(eqName string, eventDef *domain.EventDefinition, computedPayload map[string]interface{}) error {
+func (s *eventDefDistributorDefault) DistributeEventDef(eqId,eqName string, eventDef *domain.EventDefinition, computedPayload map[string]interface{}) error {
 	//by default we will just write to the log for the moment
 	s.LogInfo("***********************")
 	s.LogInfo("***EVENT DEF RESULT****")
@@ -45,6 +45,7 @@ func (s *eventDefDistributorDefault) DistributeEventDef(eqName string, eventDef 
 	if err == nil {
 		msg := domain.StdMessageStruct{
 			OwningAsset:  eqName,
+			OwningAssetId:  eqId,
 			ItemName:     fmt.Sprintf("%s", eventDef.MessageClass),
 			ItemValue:    string(jsonBytes),
 			ItemDataType: "STRING",

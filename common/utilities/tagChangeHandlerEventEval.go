@@ -83,7 +83,7 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 								s.addEventForEquipment((*s.mgdEq).GetEquipmentId(), evtDef, computedFields)
 							}
 							//distribute the event
-							err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
+							err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentId(),(*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
 						}
 					} else {
 						s.LogErrorf("Failed in EvaluateEventDef with err=%+v", err)
