@@ -31,7 +31,7 @@ func (s *tagChangeHandlerPropInMemory) HandleTagChange(tagData domain.StdMessage
 	if tagData.ItemName != "" {
 		oldVal := (*s.mgdEq).GetPropertyValue(tagData.ItemName)
 		if oldVal != nil {
-			(*handlerContext)[tagData.ItemName+"_ORIGVAL"] = oldVal
+			tagData.ItemOldValue = fmt.Sprintf("%s", oldVal)
 		}
 		return (*s.mgdEq).UpdatePropertyValue(tagData.ItemName, tagData.ItemValue)
 	}
