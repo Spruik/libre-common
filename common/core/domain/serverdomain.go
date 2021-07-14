@@ -27,9 +27,11 @@ type StdMessageStruct struct {
 	ItemNameExt   map[string]string
 	ItemId        string
 	ItemValue     string
+	ItemOldValue  string
 	ItemDataType  string
 	TagQuality    int
 	Err           error
+	ChangedTime   time.Time
 	Category      string
 }
 
