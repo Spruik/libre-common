@@ -25,10 +25,7 @@ type libreHistorianInfluxdb struct {
 func NewLibreHistorianInfluxdb(configHook string) *libreHistorianInfluxdb {
 	s := libreHistorianInfluxdb{}
 	s.SetConfigCategory(configHook)
-	hook, err := s.GetConfigItemWithDefault("loggerHook", "Influxdb")
-	if err == nil {
-		s.SetLoggerConfigHook(hook)
-	}
+	hook, _ := s.GetConfigItemWithDefault("loggerHook", "Influxdb")
 	s.SetLoggerConfigHook(hook)
 	return &s
 }

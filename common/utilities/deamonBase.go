@@ -170,7 +170,7 @@ func (d *DaemonBase) acceptCommand() error {
 			d.LogDebugf("%s done waiting for child completion of %s with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
 		}
 		if chgCmd.Cmd.HasTargetState() {
-			d.LogDebug("SETTING TARGET STATE TO ", chgCmd.Cmd.GetTargetState())
+			d.LogInfof("DAEMON '%s' SETTING STATE TO %s", d.name, chgCmd.Cmd.GetTargetState().GetStateName())
 			d.SetState(chgCmd.Cmd.GetTargetState())
 		}
 		if len(resp) > 0 {
@@ -181,7 +181,7 @@ func (d *DaemonBase) acceptCommand() error {
 		d.adminChannel <- chgCmd
 	case <-time.After(time.Second):
 	}
-	d.LogDebugf(d.name, "done checking for command.  err=%s ", err)
+	d.LogDebug(d.name, "done checking for command.  err=%s ", err)
 	return err
 }
 
@@ -235,6 +235,22 @@ func (d *DaemonBase) RemoveCommandFxn(cmd ports.DaemonCommandIF) {
 func (d *DaemonBase) AddDaemonChild(DaemonChild ports.DaemonIF) {
 	DaemonChild.SetWaitGroup(&d.localWaitGroup)
 	d.daemonChildren = append(d.daemonChildren, DaemonChild)
+}
+func (d *DaemonBase) RemoveDaemonChild(DaemonChild ports.DaemonIF) {
+	_, err := DaemonChild.SubmitCommand(DaemonEndCommand, nil)
+	if err != nil {
+		d.LogErrorf("%s FAILED END COMMAND DURING REMOVE OF CHILD %s", d.name, DaemonChild.GetName())
+	}
+	var delndx int = -1
+	for ndx := 0; ndx < len(d.daemonChildren); ndx++ {
+		if d.daemonChildren[ndx] == DaemonChild {
+			delndx = ndx
+			break
+		}
+	}
+	if delndx != -1 {
+		d.daemonChildren = append(d.daemonChildren[:delndx], d.daemonChildren[delndx+1:]...)
+	}
 }
 func (d *DaemonBase) SubmitCommand(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, error) {
 	d.LogDebugf("SubmitCommand called to send %s to %s ", cmd.GetCommandName(), d.name)

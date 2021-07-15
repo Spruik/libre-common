@@ -187,6 +187,7 @@ func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context,
 					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
 					TagQuality:  128,
 					Err:         nil,
+					ChangedTime: msg.ServerTimestamp,
 				}
 				s.ChangeChannels[clientName] <- tagData
 			}

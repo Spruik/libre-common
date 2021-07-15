@@ -18,6 +18,30 @@ func GetActiveEquipmentByLevel(txn ports.LibreDataStoreTransactionPort, level st
 	return q.QueryEquipment, err
 }
 
+func GetActiveEquipmentByLevelList(txn ports.LibreDataStoreTransactionPort, levels []domain.EquipmentElementLevel) ([]domain.Equipment, error) {
+	var q struct {
+		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{isActive: true, and: {equipmentLevel: {in: $levels}}}) "`
+	}
+	variables := map[string]interface{}{
+		"levels": levels,
+	}
+	err := txn.ExecuteQuery(&q, variables)
+	return q.QueryEquipment, err
+}
+
+func GetActiveEquipmentByLevelListWithIncExc(txn ports.LibreDataStoreTransactionPort, levels []domain.EquipmentElementLevel, includeIds []string, excludeIds []string) ([]domain.Equipment, error) {
+	var q struct {
+		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{isActive: true, and: {equipmentLevel: {in: $levels}, or: {id:$includeIds}, and: {not:{id:$excludeIds}}}}) "`
+	}
+	variables := map[string]interface{}{
+		"levels":     levels,
+		"includeIds": includeIds,
+		"excludeIds": excludeIds,
+	}
+	err := txn.ExecuteQuery(&q, variables)
+	return q.QueryEquipment, err
+}
+
 func GetEquipmentByName(txn ports.LibreDataStoreTransactionPort, eqName string) (domain.Equipment, error) {
 	var q struct {
 		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{name:{eq:$eqName}}) "`

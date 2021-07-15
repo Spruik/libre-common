@@ -63,6 +63,20 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 		if isValid {
 			entry := s.tagNameToEventDefIdMap[tagData.ItemName]
 			if entry != nil {
+				//create the eval context from the tagData and existing handlerContext
+				//-from the existing context
+				evalContext := map[string]interface{}{}
+				for hkey, hval := range *handlerContext {
+					evalContext[hkey] = hval
+				}
+				//-from tagdata, add the old value (even if nil, so that there is always an XXX_ORIGVAL)
+				evalContext[fmt.Sprintf("%s_ORIGVAL", tagData.ItemValue)] = tagData.ItemOldValue
+				//-from the item name extension in case the topic parse gave special values
+				if tagData.ItemNameExt != nil && len(tagData.ItemNameExt) > 0 {
+					for ekey, eval := range tagData.ItemNameExt {
+						evalContext[ekey] = eval
+					}
+				}
 				for _, evtDefId := range entry {
 					var evalTrue bool
 					var evtDef *domain.EventDefinition
@@ -83,7 +97,7 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 								s.addEventForEquipment((*s.mgdEq).GetEquipmentId(), evtDef, computedFields)
 							}
 							//distribute the event
-							err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentId(),(*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
+							err = s.eventDefDistIF.DistributeEventDef((*s.mgdEq).GetEquipmentId(), (*s.mgdEq).GetEquipmentName(), evtDef, computedFields)
 						}
 					} else {
 						s.LogErrorf("Failed in EvaluateEventDef with err=%+v", err)

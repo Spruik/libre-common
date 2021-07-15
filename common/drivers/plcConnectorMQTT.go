@@ -94,7 +94,7 @@ func (s *plcConnectorMQTT) Connect() error {
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Failed to connect to %s: %s", server, err)
 		return err
 	}
 
@@ -274,6 +274,7 @@ func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
 		ItemValue:   string(m.Payload),
 		TagQuality:  128,
 		Err:         nil,
+		ChangedTime: time.Now(),
 		//Category:    tokenMap["CATEGORY"],
 
 	}

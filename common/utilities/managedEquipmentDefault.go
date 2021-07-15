@@ -126,7 +126,10 @@ func (s *managedEquipmentDefault) GetProperty(name string) domain.EquipmentPrope
 
 func (s *managedEquipmentDefault) SetConfigLevel(level int) {
 	s.ConfigLevel = level
-	//TODO - handle this by updating equipment or something?
+}
+
+func (s *managedEquipmentDefault) GetConfigLevel() int {
+	return s.ConfigLevel
 }
 
 func (s *managedEquipmentDefault) GetEquipmentId() string {
