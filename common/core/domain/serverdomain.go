@@ -31,6 +31,8 @@ type StdMessageStruct struct {
 	TagQuality    int
 	Err           error
 	Category      string
+	Topic		  string
+	ReplyTopic    string
 }
 
 type EquipmentPropertyDescriptor struct {
