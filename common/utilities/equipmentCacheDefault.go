@@ -29,7 +29,7 @@ type equipmentCacheDefault struct {
 	equipmentChangeFxn func(notice ports.EquipmentCacheChangeNotice)
 }
 
-func NewEquipmentCacheDefault(storeIF ports.LibreDataStorePort, finderIF ports.EquipmentFinderPort) *equipmentCacheDefault {
+func NewEquipmentCacheDefault(configHook string, storeIF ports.LibreDataStorePort, finderIF ports.EquipmentFinderPort) *equipmentCacheDefault {
 	s := equipmentCacheDefault{
 		dataStore:         storeIF,
 		finderIF:          finderIF,
@@ -38,8 +38,12 @@ func NewEquipmentCacheDefault(storeIF ports.LibreDataStorePort, finderIF ports.E
 		configLevel:       0,
 		monitoringChannel: nil,
 	}
-	s.SetLoggerConfigHook("EQCACHE")
-	s.SetConfigCategory("equipmentCache")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	monStr, _ := s.GetConfigItemWithDefault("MonitorChanges", "false")
 	var err error
 	s.monitorChanges, err = strconv.ParseBool(monStr)

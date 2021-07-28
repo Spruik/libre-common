@@ -25,13 +25,17 @@ type equipmentFinderDefault struct {
 	monitoring       bool
 }
 
-func NewEquipmentFinderDefault(storeIF ports.LibreDataStorePort) *equipmentFinderDefault {
+func NewEquipmentFinderDefault(configHook string, storeIF ports.LibreDataStorePort) *equipmentFinderDefault {
 	s := equipmentFinderDefault{
 		dataStore:  storeIF,
 		monitoring: false,
 	}
-	s.SetConfigCategory("equipmentFinder")
-	s.SetLoggerConfigHook("EQFINDR")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

@@ -22,5 +22,7 @@ type LibreHistorianPort interface {
 
 	QueryRecentPointHistory(backTimeToken string, pointName string) (*api.QueryTableResult, error)
 
+	QueryLatestFromPointHistory(pointName string) (*api.QueryTableResult, error)
+
 	//TODO - other query "convenience" methods?
 }

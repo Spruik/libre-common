@@ -31,7 +31,7 @@ type plcConnectorMQTT struct {
 	listenMutex sync.Mutex
 }
 
-func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
+func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
 	s := plcConnectorMQTT{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
@@ -39,8 +39,12 @@ func NewPlcConnectorMQTT(configCategoryName string) *plcConnectorMQTT {
 		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
 		listenMutex:          sync.Mutex{},
 	}
-	s.SetConfigCategory(configCategoryName)
-	s.SetLoggerConfigHook("PlcConnectorMQTT")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	tmplStanza, err := s.GetConfigStanza("TOPIC_TEMPLATES")
 	if err == nil {
 		for _, child := range tmplStanza.Children {
@@ -238,33 +242,6 @@ func (s *plcConnectorMQTT) SubscribeToTopic(topic string) {
 	}
 }
 
-//func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
-//	eqName, tagName := parseTopic(m.Topic)
-//	tagStruct := domain.StdMessageStruct{
-//		OwningAsset: eqName,
-//		ItemName:     tagName,
-//		ItemValue:    string(m.Payload),
-//		TagQuality:  128,
-//		Err:         nil,
-//	}
-//	s.ChangeChannels[eqName] <- tagStruct
-//}
-
-//func parseTopic(topic string) (string, string) {
-//	var eqName, tagName string
-//	sndx := strings.Index(topic, "/Status/")
-//	if sndx >= 0 {
-//		eqName = topic[0:sndx]
-//		tagName = topic[sndx+8:]
-//	} else {
-//		andx := strings.Index(topic, "/Admin/")
-//		if andx >= 0 {
-//			eqName = topic[0:andx]
-//			tagName = topic[sndx+7:]
-//		}
-//	}
-//	return eqName, tagName
-//}
 func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
 	tokenMap := s.parseTopic(m.Topic)

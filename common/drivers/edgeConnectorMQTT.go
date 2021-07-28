@@ -34,13 +34,17 @@ type edgeConnectorMQTT struct {
 	eventCategory    string
 }
 
-func NewEdgeConnectorMQTT() *edgeConnectorMQTT {
+func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 	s := edgeConnectorMQTT{
 		mqttClient: nil,
 	}
 	s.ChangeChannels = make(map[string]chan domain.StdMessageStruct)
-	s.SetConfigCategory("edgeConnectorMQTT")
-	s.SetLoggerConfigHook("EDGEMQTT")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/Report/<TAGNAME>")
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
@@ -265,25 +269,4 @@ func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
 	} else {
 		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
 	}
-	//tokenMap := s.parseTopic(m.Topic)
-	//tagStruct := domain.StdMessageStruct{
-	//	OwningAsset: tokenMap["EQNAME"],
-	//	ItemName:    tokenMap["TAGNAME"],
-	//	ItemValue:   string(m.Payload),
-	//	TagQuality:  128,
-	//	Err:         nil,
-	//}
-	//s.ChangeChannel <- tagStruct
-}
-
-func (s *edgeConnectorMQTT) parseTopic(topic string) map[string]string {
-	ret := map[string]string{}
-	names := s.topicParseRegExp.SubexpNames()
-	matches := s.topicParseRegExp.FindStringSubmatch(topic)
-	for i, name := range names {
-		if i > 0 && i <= len(matches) {
-			ret[name] = matches[i]
-		}
-	}
-	return ret
 }

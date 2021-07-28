@@ -1,17 +1,25 @@
 package utilities
 
 import (
+	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
+	libreConfig "github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
 )
 
 type ruleResultDistributorDefault struct {
+	libreConfig.ConfigurationEnabler
 	libreLogger.LoggingEnabler
 }
 
-func NewRuleResultDistributorDefault() *ruleResultDistributorDefault {
+func NewRuleResultDistributorDefault(configHook string) *ruleResultDistributorDefault {
 	s := ruleResultDistributorDefault{}
-	s.SetLoggerConfigHook("EVTDISTR")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

@@ -18,9 +18,9 @@ func NewPlcTagResolverAlias(dataStore ports.LibreDataStorePort, aliasingSystem s
 	}
 }
 
-func (s *plcTagResolverAlias) ResolvePlcTagName(plcName string) (string, error) {
+func (s *plcTagResolverAlias) ResolvePlcTagName(plcName string, eqName string) (string, error) {
 	//use data store alias info to translate name
-	name, err := queries.GetPropertyNameForSystemAlias(s.dataStore.BeginTransaction(false, "tagaliasplc"), s.system, plcName)
+	name, err := queries.GetPropertyNameForSystemAlias(s.dataStore.BeginTransaction(false, "tagaliasplc"), s.system, plcName, eqName)
 	if err == nil && name == "" {
 		//no translation - return original name
 		name = plcName

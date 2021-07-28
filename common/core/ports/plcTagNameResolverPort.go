@@ -6,7 +6,7 @@ import "github.com/Spruik/libre-common/common/core/domain"
 type PlcTagNameResolverPort interface {
 
 	//ResolvePlcName returns the standard name for a Tag given the external name
-	ResolvePlcTagName(plcName string) (string, error)
+	ResolvePlcTagName(plcName string, eqName string) (string, error)
 
 	//ResolveStdName returns the external name for a Tag given the internal name - since internally, names are equipment dependent, we pass a TagInfo struct
 	ResolveStdTagName(stdName domain.StdMessageStruct) (string, error)

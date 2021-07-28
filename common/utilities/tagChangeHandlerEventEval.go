@@ -6,11 +6,13 @@ import (
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
+	libreConfig "github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
 	"time"
 )
 
 type tagChangeHandlerEventEval struct {
+	libreConfig.ConfigurationEnabler
 	//inherit logging functions
 	libreLogger.LoggingEnabler
 

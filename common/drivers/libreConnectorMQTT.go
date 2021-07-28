@@ -28,12 +28,16 @@ type libreConnectorMQTT struct {
 	eventCategory   string
 }
 
-func NewLibreConnectorMQTT(configCategoryName string) *libreConnectorMQTT {
+func NewLibreConnectorMQTT(configHook string) *libreConnectorMQTT {
 	s := libreConnectorMQTT{
 		mqttClient: nil,
 	}
-	s.SetConfigCategory(configCategoryName)
-	s.SetLoggerConfigHook("LIBRCONN")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/<CATEGORY>/<TAGNAME>")
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")

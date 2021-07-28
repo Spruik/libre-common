@@ -20,12 +20,16 @@ type eventDefEvaluatorDefault struct {
 	dataStore ports.LibreDataStorePort
 }
 
-func NewEventDefEvaluatorDefault(storeIF ports.LibreDataStorePort) *eventDefEvaluatorDefault {
+func NewEventDefEvaluatorDefault(configHook string, storeIF ports.LibreDataStorePort) *eventDefEvaluatorDefault {
 	s := eventDefEvaluatorDefault{
 		dataStore: storeIF,
 	}
-	s.SetLoggerConfigHook("EVTEVALR")
-	s.SetConfigCategory("eventDefEvaluatorDefault")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

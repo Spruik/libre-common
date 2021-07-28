@@ -5,17 +5,24 @@ import (
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/services"
+	libreConfig "github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
 	"time"
 )
 
 type eventDefDistributorDefault struct {
+	libreConfig.ConfigurationEnabler
 	libreLogger.LoggingEnabler
 }
 
-func NewEventDefDistributorDefault() *eventDefDistributorDefault {
+func NewEventDefDistributorDefault(configHook string) *eventDefDistributorDefault {
 	s := eventDefDistributorDefault{}
-	s.SetLoggerConfigHook("EVTDISTR")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

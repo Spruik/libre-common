@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
@@ -21,10 +22,14 @@ type libreDataStoreGraphQL struct {
 	gqlClient *graphql.Client
 }
 
-func NewLibreDataStoreGraphQL() *libreDataStoreGraphQL {
+func NewLibreDataStoreGraphQL(configHook string) *libreDataStoreGraphQL {
 	s := libreDataStoreGraphQL{}
-	s.SetConfigCategory("libreDataStoreGraphQL")
-	s.SetLoggerConfigHook("DATAGQL")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

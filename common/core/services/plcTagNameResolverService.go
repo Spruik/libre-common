@@ -24,8 +24,8 @@ func GetPlcTagNameResolverServiceInstance() *plcTagNameResolverService {
 	return plcTagNameResolverServiceInstance
 }
 
-func (s *plcTagNameResolverService) ResolvePlcTagName(plcName string) (string, error) {
-	return s.port.ResolvePlcTagName(plcName)
+func (s *plcTagNameResolverService) ResolvePlcTagName(plcName string, eqName string) (string, error) {
+	return s.port.ResolvePlcTagName(plcName, eqName)
 }
 
 func (s *plcTagNameResolverService) ResolveStdTagName(stdName domain.StdMessageStruct) (string, error) {
