@@ -1,22 +1,21 @@
 package drivers
 
 import (
-	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
-	"net"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	//"os"
+
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-type edgeConnectorMQTT struct {
+type edgeConnectorMQTTv3 struct {
 	//inherit logging functions
 	libreLogger.LoggingEnabler
 
@@ -34,8 +33,8 @@ type edgeConnectorMQTT struct {
 	eventCategory    string
 }
 
-func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
-	s := edgeConnectorMQTT{
+func NewEdgeConnectorMQTTv3(configHook string) *edgeConnectorMQTTv3 {
+	s := edgeConnectorMQTTv3{
 		mqttClient: nil,
 	}
 	s.ChangeChannels = make(map[string]chan domain.StdMessageStruct)
@@ -54,17 +53,14 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 	s.topicParseRegExp = regexp.MustCompile(topicRE)
 	return &s
 }
-
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // interface functions
 //
 //Connect implements the interface by creating an MQTT client
-func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
-	var conn net.Conn
+func (s *edgeConnectorMQTTv3) Connect() error {
 	var useTlsStr string
 	var useTls bool
-	var connAck *mqtt.Connack
 	var err error
 	var server, user, pwd, svcName string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
@@ -80,93 +76,71 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 		panic("Failed to find configuration data for MQTT connection")
 	}
 
+	opts := mqtt.NewClientOptions()
+	opts.SetUsername(user)
+	opts.SetPassword(pwd)
+	opts.SetDefaultPublishHandler(f)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
-		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for edgeConnectorMQTT: %s", useTlsStr))
+		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		tlsConfig := newTLSConfig()
+		opts.AddBroker("ssl://"+server)
+		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
+		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
-		conn, err = net.Dial("tcp", server)
+		//conn, err = net.Dial("tcp", server)
+		opts.AddBroker("tcp://"+server)
+		opts.SetClientID(svcName)
+		opts.SetKeepAlive(2 * time.Second)
+		opts.SetPingTimeout(1 * time.Second)
 	}
-	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Edge", "Failed to connect to %s: %s", server, err)
 		return err
 	}
-
-	client := mqtt.NewClient()
-	client.Conn = conn
-
-	connStruct := &mqtt.Connect{
-		KeepAlive:  300,
-		ClientID:   fmt.Sprintf("%v", svcName),
-		CleanStart: true,
-		Username:   user,
-		Password:   []byte(pwd),
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		s.LogError(token.Error())
 	}
-
-	if user != "" {
-		connStruct.UsernameFlag = true
-	}
-	if pwd != "" {
-		connStruct.PasswordFlag = true
-	}
-
-	connAck, err = client.Connect(context.Background(), connStruct)
-	if err != nil {
-		s.LogErrorf("Connect return err=%s", err)
-	}
-	if connAck.ReasonCode != 0 {
-		var cid string
-		if s.mqttClient == nil {
-			cid = "nil clientid"
-		} else {
-			cid = s.mqttClient.ClientID
-		}
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError("Plc", msg)
-	} else {
-		s.mqttClient = client
-		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
-	}
+	s.mqttClient = &client
+	reader := client.OptionsReader()
+	s.LogInfof("%s Connected to %s\n", reader.ClientID(), server)
 	return err
 }
 
 //Close implements the interface by closing the MQTT client
-func (s *edgeConnectorMQTT) Close() error {
+func (s *edgeConnectorMQTTv3) Close() error {
 	if s.mqttClient == nil {
 		return nil
 	}
-	disconnStruct := &mqtt.Disconnect{
-		Properties: nil,
-		ReasonCode: 0,
-	}
-	err := s.mqttClient.Disconnect(disconnStruct)
-	if err == nil {
-		s.mqttClient = nil
-	}
-	s.LogInfo("Edge Connection Closed\n")
-	return err
+	client := *s.mqttClient
+	client.Disconnect(250)
+	time.Sleep(1 * time.Second)
+	s.LogInfof("PLC Connection Closed\n")
+	return nil
 }
 
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
-func (s *edgeConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *edgeConnectorMQTTv3) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	_ = inTagDefs
 	//TODO - need top figure out what topic/message to publish that will request a read from the PLC
 	//  messaging partner
 	return []domain.StdMessageStruct{}
 }
 
 //WriteTags implements the interface by generating an MQTT message to the PLC, waiting for the result
-func (s *edgeConnectorMQTT) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *edgeConnectorMQTTv3) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	_ = outTagDefs
 	//TODO - need top figure out what topic/message to publish that will request a write from the PLC
 	//  messaging partner
 	return []domain.StdMessageStruct{}
 }
 
 //ListenForPlcTagChanges implements the interface by subscribing to topics and waiting for related messages
-func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
+func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
 	s.LogDebug("BEGIN ListenForEdgeTagChanges")
 	var clientName string
 	fltrClient, exists := changeFilter["Client"]
@@ -190,21 +164,21 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
-	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
+	//s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
 			topic := s.buildTopicString(s.tagDataCategory, val)
 			err := s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
 			topic = s.buildTopicString(s.eventCategory, val)
 			err = s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
@@ -212,15 +186,15 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 }
 
-func (s *edgeConnectorMQTT) buildTopicString(category string, changeFilerVal interface{}) string {
-	topic := s.topicTemplate
+func (s *edgeConnectorMQTTv3) buildTopicString(category string, changeFilerVal interface{}) string {
+	var topic string = s.topicTemplate
 	topic = strings.Replace(topic, "<EQNAME>", fmt.Sprintf("%s", changeFilerVal), -1)
 	//TODO - more robust and complete template processing
 	topic = strings.Replace(topic, "<CATEGORY>", category, -1)
 	topic = strings.Replace(topic, "<TAGNAME>", "#", -1)
 	return topic
 }
-func (s *edgeConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *edgeConnectorMQTTv3) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	//TODO - how to get history via MQTT - seems like it will depend on what is publishing the MQTT messages
 	return []domain.StdMessageStruct{}
 }
@@ -229,36 +203,21 @@ func (s *edgeConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, in
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
-	subPropsStruct := &mqtt.SubscribeProperties{
-		SubscriptionIdentifier: nil,
-		User:                   nil,
+func (s *edgeConnectorMQTTv3) SubscribeToTopic(topic string) error {
+	c:= *s.mqttClient
+	if token := c.Subscribe(topic, 0, s.tagChangeHandler); token.Wait() && token.Error() != nil {
+		s.LogError(token.Error())
+		return token.Error()
 	}
-	var subMap = make(map[string]mqtt.SubscribeOptions)
-	subMap[topic] = mqtt.SubscribeOptions{
-		QoS:               0,
-		RetainHandling:    0,
-		NoLocal:           false,
-		RetainAsPublished: false,
-	}
-	subStruct := &mqtt.Subscribe{
-		Properties:    subPropsStruct,
-		Subscriptions: subMap,
-	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
-	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
-	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
-	}
-	return err
+	s.LogDebug("subscribed to "+topic)
+	return nil
 }
 
-func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
+func (s *edgeConnectorMQTTv3) tagChangeHandler(client mqtt.Client,m mqtt.Message) {
 	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
-	err := json.Unmarshal(m.Payload, &tagStruct)
+	err := json.Unmarshal(m.Payload(), &tagStruct)
 	if err == nil {
 		if s.singleChannel == nil {
 			s.ChangeChannels[tagStruct.OwningAsset] <- tagStruct
