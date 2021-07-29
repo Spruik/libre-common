@@ -69,7 +69,6 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(user)
 	opts.SetPassword(pwd)
-	opts.SetDefaultPublishHandler(f)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
@@ -83,7 +82,7 @@ func (s *libreConnectorMQTTv3) Connect() error {
 		//conn, err = net.Dial("tcp", server)
 		opts.AddBroker("tcp://"+server)
 		opts.SetClientID(svcName)
-		opts.SetKeepAlive(2 * time.Second)
+		opts.SetKeepAlive(2 * 60 * time.Second)
 		opts.SetPingTimeout(1 * time.Second)
 	}
 	if err != nil {

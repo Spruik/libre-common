@@ -10,6 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"io/ioutil"
 	"log"
+	"os"
 
 	//"os"
 
@@ -61,10 +62,6 @@ func NewPlcConnectorMQTTv3(configCategoryName string) *plcConnectorMQTTv3 {
 
 	return &s
 }
-var f mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("TOPIC: %s\n", msg.Topic())
-	fmt.Printf("MSG: %s\n", msg.Payload())
-}
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // interface functions
@@ -84,14 +81,19 @@ func (s *plcConnectorMQTTv3) Connect() error {
 			}
 		}
 	}
+	s.LogDebug("ServiceName = "+svcName)
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
-
+	mqtt.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
+	mqtt.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
+	mqtt.WARN = log.New(os.Stdout, "[WARN]  ", 0)
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(user)
 	opts.SetPassword(pwd)
-	opts.SetDefaultPublishHandler(f)
+	opts.SetOrderMatters(false)
+	opts.SetKeepAlive(30 * time.Second)
+	opts.SetPingTimeout(2 * time.Second)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
@@ -99,14 +101,11 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://"+server)
-		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
+		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
 		//conn, err = net.Dial("tcp", server)
 		opts.AddBroker("tcp://"+server)
-		opts.SetClientID(svcName)
-		opts.SetKeepAlive(2 * time.Second)
-		opts.SetPingTimeout(1 * time.Second)
 	}
 	if err != nil {
 
@@ -167,6 +166,7 @@ func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStru
 				var topic string = tmpl
 				topic = strings.Replace(topic, "<EQNAME>", clientName, -1)
 				topic = strings.Replace(topic, "<TAGNAME>", fmt.Sprintf("%s", val), -1)
+				s.LogDebug(topic)
 				var i, j int
 				i = strings.Index(topic, "<")
 				for i >= 0 {
@@ -178,9 +178,11 @@ func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStru
 			}
 		}
 	}
+	s.LogDebug("topicSet....................")
+	s.LogDebug(topicSet)
 	for key := range topicSet {
 		s.LogDebugf("subscription topic: %s", key)
-		s.SubscribeToTopic(fmt.Sprintf("%v", key))
+		go s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
 
