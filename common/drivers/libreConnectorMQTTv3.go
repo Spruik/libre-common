@@ -109,7 +109,7 @@ func (s *libreConnectorMQTTv3) Close() error {
 	client := *s.mqttClient
 	client.Disconnect(250)
 	time.Sleep(1 * time.Second)
-	s.LogInfof("PLC Connection Closed\n")
+	s.LogInfof("Libre Connection Closed\n")
 	return nil
 }
 
