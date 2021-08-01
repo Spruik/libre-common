@@ -43,3 +43,6 @@ func (s *libreHistorianService) QueryRaw(query string) (*api.QueryTableResult, e
 func (s *libreHistorianService) QueryRecentPointHistory(backTimeToken string, pointName string) (*api.QueryTableResult, error) {
 	return s.port.QueryRecentPointHistory(backTimeToken, pointName)
 }
+func (s *libreHistorianService) QueryLatestFromPointHistory(pointName string) (*api.QueryTableResult, error) {
+	return s.port.QueryLatestFromPointHistory(pointName)
+}

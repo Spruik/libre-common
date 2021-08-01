@@ -23,7 +23,12 @@ func SetEquipmentFinderServiceInstance(inst *equipmentFinderService) {
 func GetEquipmentFinderServiceInstance() *equipmentFinderService {
 	return equipmentFinderServiceInstance
 }
-
 func (s *equipmentFinderService) FindEquipment() ([]domain.Equipment, error) {
 	return s.port.FindEquipment()
+}
+func (s *equipmentFinderService) SubscribeToChanges(notificationChannel chan ports.EquipmentFinderChangeNotice) {
+	s.port.SubscribeToChanges(notificationChannel)
+}
+func (s *equipmentFinderService) UnsubscribeToChanges(notificationChannel chan ports.EquipmentFinderChangeNotice) {
+	s.port.UnsubscribeToChanges(notificationChannel)
 }

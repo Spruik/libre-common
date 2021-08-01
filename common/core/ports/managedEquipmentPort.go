@@ -8,6 +8,7 @@ type ManagedEquipmentPort interface {
 	UpdatePropertyValue(propName string, propValue interface{}) error
 	AddEvent(eventName string, eventDesc domain.EquipmentEventDescriptor) error
 	SetConfigLevel(level int)
+	GetConfigLevel() int
 	SendRequest(request domain.EquipmentServiceRequest) domain.EquipmentServiceRequest
 	AcceptRequest(tagChangeHandlers *[]TagChangeHandlerPort) bool
 	GetEquipmentId() string

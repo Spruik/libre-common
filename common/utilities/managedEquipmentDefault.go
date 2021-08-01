@@ -23,7 +23,7 @@ type managedEquipmentDefault struct {
 	events         []domain.EquipmentEventDescriptor
 }
 
-func NewManagedEquipmentDefault(eqInst domain.Equipment, dataStore ports.LibreDataStorePort) *managedEquipmentDefault {
+func NewManagedEquipmentDefault(configHook string, eqInst domain.Equipment, dataStore ports.LibreDataStorePort) *managedEquipmentDefault {
 	s := managedEquipmentDefault{
 		EquipInst:      eqInst,
 		ConfigLevel:    0,
@@ -31,8 +31,12 @@ func NewManagedEquipmentDefault(eqInst domain.Equipment, dataStore ports.LibreDa
 		props:          map[string]domain.EquipmentPropertyDescriptor{},
 		events:         make([]domain.EquipmentEventDescriptor, 0, 0),
 	}
-	s.SetLoggerConfigHook("managedEquipmentDefault")
-	s.SetConfigCategory("managedEquipmentDefault")
+	s.SetConfigCategory(configHook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
+	s.SetLoggerConfigHook(loggerHook)
 
 	txn := dataStore.BeginTransaction(false, "getProp"+s.GetEquipmentName())
 	defer txn.Dispose()
@@ -126,7 +130,10 @@ func (s *managedEquipmentDefault) GetProperty(name string) domain.EquipmentPrope
 
 func (s *managedEquipmentDefault) SetConfigLevel(level int) {
 	s.ConfigLevel = level
-	//TODO - handle this by updating equipment or something?
+}
+
+func (s *managedEquipmentDefault) GetConfigLevel() int {
+	return s.ConfigLevel
 }
 
 func (s *managedEquipmentDefault) GetEquipmentId() string {
@@ -197,21 +204,17 @@ func (s *managedEquipmentDefault) GetEventList() *[]domain.EquipmentEventDescrip
 ///////////////////////////////////////////////////////////////////////
 
 type managedEquipmentFactoryDefault struct {
-	//inherit logging functions
-	libreLogger.LoggingEnabler
-
-	//inherit config functions
-	libreConfig.ConfigurationEnabler
-
-	dataStore ports.LibreDataStorePort
+	dataStore          ports.LibreDataStorePort
+	instanceConfigHook string
 }
 
-func NewManagedEquipmentFactoryDefault(dataStore ports.LibreDataStorePort) *managedEquipmentFactoryDefault {
+func NewManagedEquipmentFactoryDefault(dataStore ports.LibreDataStorePort, instanceConfigHook string) *managedEquipmentFactoryDefault {
 	return &managedEquipmentFactoryDefault{
-		dataStore: dataStore,
+		dataStore:          dataStore,
+		instanceConfigHook: instanceConfigHook,
 	}
 }
 
 func (s *managedEquipmentFactoryDefault) GetNewInstance(eqInst domain.Equipment) ports.ManagedEquipmentPort {
-	return NewManagedEquipmentDefault(eqInst, s.dataStore)
+	return NewManagedEquipmentDefault(s.instanceConfigHook, eqInst, s.dataStore)
 }

@@ -55,12 +55,14 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	}
 
 	//set up the daemon control functions entry points
+	// top level "control" entry point to display available commands
 	ep := fmt.Sprintf("/%s/control", s.monitoredDaemon.GetName())
 	s.router.HandleFunc(ep, s.controlLink)
 	s.endpoints = append(s.endpoints, ep)
 
+	// entry point for each implemented command
 	for cmd, _ := range s.monitoredDaemon.GetCommands() {
-		ep = fmt.Sprintf("/%s/control/{cmd}", s.monitoredDaemon.GetName())
+		ep = fmt.Sprintf("/%s/control/%s", s.monitoredDaemon.GetName(), cmd.GetCommandName())
 		if cmd.GetInputParamNames() != nil {
 			for _, p := range cmd.GetInputParamNames() {
 				ep += fmt.Sprintf("/{%s}", p)
@@ -70,9 +72,6 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 		s.endpoints = append(s.endpoints, ep)
 
 	}
-	ep = fmt.Sprintf("/%s/control/{cmd}", s.monitoredDaemon.GetName())
-	s.router.HandleFunc(ep, s.controlCmdLink)
-	s.endpoints = append(s.endpoints, ep)
 
 	//set up the Kubernetes entry points - note: not adding these to the entrypoint list because they would not be called by a user
 	s.router.HandleFunc("/home", s.homeLink)
@@ -106,7 +105,7 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 	for _, ep := range s.endpoints {
 		resp.Endpoints = append(resp.Endpoints, ep)
 	}
-	respBytes, err := json.Marshal(&resp)
+	respBytes, err := json.MarshalIndent(&resp, "", "   ")
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
 	} else {
@@ -116,16 +115,35 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 
 func (s *DaemonRESTServer) controlLink(w http.ResponseWriter, r *http.Request) {
 	_ = r
-	respStr := "serverREST API for: " + s.monitoredDaemon.GetName() + " - control"
-	respStr += "   Available endpoints are: \n"
-	for cmd, _ := range s.monitoredDaemon.GetCommands() {
-		respStr += fmt.Sprintf("      /%s/control/%s\n", s.monitoredDaemon.GetName(), cmd.GetCommandName())
+	var resp = struct {
+		DaemonName string
+		Endpoints  []string
+	}{
+		DaemonName: s.monitoredDaemon.GetName(),
+		Endpoints:  make([]string, 0, 0),
 	}
-	_, _ = fmt.Fprintln(w, respStr)
+	for _, ep := range s.endpoints {
+		if strings.Contains(ep, "/control/") {
+			resp.Endpoints = append(resp.Endpoints, ep)
+		}
+	}
+	respBytes, err := json.MarshalIndent(&resp, "", "   ")
+	if err == nil {
+		_, _ = fmt.Fprintln(w, string(respBytes))
+	} else {
+		_, _ = fmt.Fprintln(w, fmt.Sprintf("%s", err))
+	}
 }
 
 func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request) {
-	cmdName := mux.Vars(r)["cmd"]
+	rqstPath := r.URL.Path
+	var cmdName string
+	ndx := strings.Index(rqstPath, "/control/")
+	if ndx > 0 {
+		restPath := rqstPath[ndx+9:]
+		tokens := strings.Split(restPath, "/")
+		cmdName = tokens[0]
+	}
 	var targetCommand ports.DaemonCommandIF = nil
 	for cmd, _ := range s.monitoredDaemon.GetCommands() {
 		if strings.ToUpper(cmd.GetCommandName()) == strings.ToUpper(cmdName) {
@@ -191,27 +209,27 @@ func (s *DaemonRESTServer) healthzLink(w http.ResponseWriter, r *http.Request) {
 func (s *DaemonRESTServer) readyzLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	/*
-	resp, err := s.monitoredDaemon.SubmitCommand(utilities.DaemonGetStateCommand, nil)
-	if err == nil {
-		anyInitializing := false
-		for _, val := range resp {
-			switch val.(type) {
-			case string:
-				status := fmt.Sprintf("%s", val)
-				if status == utilities.DaemonInitialState.GetStateName() {
-					anyInitializing = true
-					break
+		resp, err := s.monitoredDaemon.SubmitCommand(utilities.DaemonGetStateCommand, nil)
+		if err == nil {
+			anyInitializing := false
+			for _, val := range resp {
+				switch val.(type) {
+				case string:
+					status := fmt.Sprintf("%s", val)
+					if status == utilities.DaemonInitialState.GetStateName() {
+						anyInitializing = true
+						break
+					}
 				}
 			}
-		}
-		if anyInitializing {
-			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			if anyInitializing {
+				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
 		} else {
-			w.WriteHeader(http.StatusOK)
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		}
-	} else {
-		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-	}
 
-	 */
+	*/
 }

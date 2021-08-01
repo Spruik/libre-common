@@ -15,12 +15,12 @@ type equipmentServiceManagerRunnerDefault struct {
 	mgdEq             *ports.ManagedEquipmentPort
 }
 
-func NewEquipmentServiceManagerRunnerDefault(storeIF ports.LibreDataStorePort, tagChangeHandlers *[]ports.TagChangeHandlerPort) *equipmentServiceManagerRunnerDefault {
+func NewEquipmentServiceManagerRunnerDefault(loggerHook string, storeIF ports.LibreDataStorePort, tagChangeHandlers *[]ports.TagChangeHandlerPort) *equipmentServiceManagerRunnerDefault {
 	s := equipmentServiceManagerRunnerDefault{
 		dataStore:         storeIF,
 		tagChangeHandlers: tagChangeHandlers,
 	}
-	s.SetLoggerConfigHook("EQSVCRNR")
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 

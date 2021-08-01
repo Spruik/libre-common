@@ -3,6 +3,7 @@ package drivers
 import (
 	"context"
 	"fmt"
+	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
@@ -25,11 +26,11 @@ type libreHistorianInfluxdb struct {
 func NewLibreHistorianInfluxdb(configHook string) *libreHistorianInfluxdb {
 	s := libreHistorianInfluxdb{}
 	s.SetConfigCategory(configHook)
-	hook, err := s.GetConfigItemWithDefault("loggerHook", "Influxdb")
-	if err == nil {
-		s.SetLoggerConfigHook(hook)
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
 	}
-	s.SetLoggerConfigHook(hook)
+	s.SetLoggerConfigHook(loggerHook)
 	return &s
 }
 
@@ -101,5 +102,10 @@ func (s *libreHistorianInfluxdb) QueryRaw(query string) (*api.QueryTableResult, 
 
 func (s *libreHistorianInfluxdb) QueryRecentPointHistory(backTimeToken string, pointName string) (*api.QueryTableResult, error) {
 	query := fmt.Sprintf(`from(bucket:"%s")|> range(start: %s) |> filter(fn: (r) => r._measurement == "%s")`, s.bucket, backTimeToken, pointName)
+	return s.queryAPI.Query(context.Background(), query)
+}
+
+func (s *libreHistorianInfluxdb) QueryLatestFromPointHistory(pointName string) (*api.QueryTableResult, error) {
+	query := fmt.Sprintf(`from(bucket:"%s") |> filter(fn: (r) => r._measurement == "%s") |> latest()`, s.bucket, pointName)
 	return s.queryAPI.Query(context.Background(), query)
 }

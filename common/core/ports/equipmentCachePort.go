@@ -10,4 +10,12 @@ type EquipmentCachePort interface {
 	//GetCachedEquipmentItem returns the managed equipment structure keyed by the given equipment name
 	GetCachedEquipmentItem(equipName string) *ManagedEquipmentPort
 	GetCachedEquipmentItemById(equipId string) *ManagedEquipmentPort
+	SetEquipmentChangeNoticeFunction(handlingFxn func(notice EquipmentCacheChangeNotice))
+	StartMonitoring()
+	StopMonitoring()
+}
+
+type EquipmentCacheChangeNotice struct {
+	ChangeType string //TODO - should probably be an enum
+	EqId       string
 }

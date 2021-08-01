@@ -38,3 +38,15 @@ func (s *equipmentCacheService) GetCachedEquipmentItem(equipName string) *ports.
 func (s *equipmentCacheService) GetCachedEquipmentItemById(equipId string) *ports.ManagedEquipmentPort {
 	return s.port.GetCachedEquipmentItemById(equipId)
 }
+func (s *equipmentCacheService) SetEquipmentChangeNoticeFunction(handlingFxn func(notice ports.EquipmentCacheChangeNotice)) {
+	s.port.SetEquipmentChangeNoticeFunction(handlingFxn)
+}
+
+func (s *equipmentCacheService) StartMonitoring() {
+	s.port.StartMonitoring()
+}
+
+func (s *equipmentCacheService) StopMonitoring() {
+	s.port.StopMonitoring()
+
+}

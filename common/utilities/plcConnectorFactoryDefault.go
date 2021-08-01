@@ -17,6 +17,8 @@ func (s *plcConnectorFactoryDefault) CreatePlcConnectorInstance(key string, conf
 	switch key {
 	case "PlcConnectorMQTT":
 		return drivers.NewPlcConnectorMQTT(configHook)
+	case "PlcConnectorMQTTv3":
+		return drivers.NewPlcConnectorMQTTv3(configHook)
 	case "PlcConnectorOPCUA":
 		return drivers.NewPlcConnectorOPCUA(configHook)
 	}

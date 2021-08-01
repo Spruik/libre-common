@@ -1,14 +1,20 @@
 package drivers
 
 import (
-	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
-	"net"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"io/ioutil"
+	"log"
+	"os"
+
+	//"os"
+
+	//"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,7 +22,7 @@ import (
 	"time"
 )
 
-type plcConnectorMQTT struct {
+type plcConnectorMQTTv3 struct {
 	//inherit config
 	libreConfig.ConfigurationEnabler
 	//inherit logging
@@ -31,20 +37,16 @@ type plcConnectorMQTT struct {
 	listenMutex sync.Mutex
 }
 
-func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
-	s := plcConnectorMQTT{
+func NewPlcConnectorMQTTv3(configCategoryName string) *plcConnectorMQTTv3 {
+	s := plcConnectorMQTTv3{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
 		topicTemplateList:    make([]string, 0, 0),
 		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
 		listenMutex:          sync.Mutex{},
 	}
-	s.SetConfigCategory(configHook)
-	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
-	if cerr != nil {
-		loggerHook = domain.DEFAULT_LOGGER_NAME
-	}
-	s.SetLoggerConfigHook(loggerHook)
+	s.SetConfigCategory(configCategoryName)
+	s.SetLoggerConfigHook("PlcConnectorMQTT")
 	tmplStanza, err := s.GetConfigStanza("TOPIC_TEMPLATES")
 	if err == nil {
 		for _, child := range tmplStanza.Children {
@@ -60,17 +62,14 @@ func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
 
 	return &s
 }
-
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // interface functions
 //
 //Connect implements the interface by creating an MQTT client
-func (s *plcConnectorMQTT) Connect() error {
-	var conn net.Conn
+func (s *plcConnectorMQTTv3) Connect() error {
 	var useTlsStr string
 	var useTls bool
-	var connAck *mqtt.Connack
 	var err error
 	var server, user, pwd, svcName string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
@@ -82,83 +81,61 @@ func (s *plcConnectorMQTT) Connect() error {
 			}
 		}
 	}
+	s.LogDebug("ServiceName = "+svcName)
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
-
+	mqtt.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
+	mqtt.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
+	mqtt.WARN = log.New(os.Stdout, "[WARN]  ", 0)
+	opts := mqtt.NewClientOptions()
+	opts.SetUsername(user)
+	opts.SetPassword(pwd)
+	opts.SetOrderMatters(false)
+	opts.SetKeepAlive(30 * time.Second)
+	opts.SetPingTimeout(2 * time.Second)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		tlsConfig := newTLSConfig()
+		opts.AddBroker("ssl://"+server)
+		opts.SetTLSConfig(tlsConfig)
+		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
-		conn, err = net.Dial("tcp", server)
+		//conn, err = net.Dial("tcp", server)
+		opts.AddBroker("tcp://"+server)
 	}
-	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
 		return err
 	}
-
-	client := mqtt.NewClient()
-	client.Conn = conn
-
-	connStruct := &mqtt.Connect{
-		KeepAlive:  300,
-		ClientID:   fmt.Sprintf("%v", svcName),
-		CleanStart: true,
-		Username:   user,
-		Password:   []byte(pwd),
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		s.LogError(token.Error())
 	}
-
-	if user != "" {
-		connStruct.UsernameFlag = true
-	}
-	if pwd != "" {
-		connStruct.PasswordFlag = true
-	}
-
-	connAck, err = client.Connect(context.Background(), connStruct)
-	if err != nil {
-		s.LogErrorf("Connect return err=%s", err)
-	}
-	if connAck.ReasonCode != 0 {
-		var cid string
-		if s.mqttClient == nil {
-			cid = "nil clientid"
-		} else {
-			cid = s.mqttClient.ClientID
-		}
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError("Plc", msg)
-	} else {
-		s.mqttClient = client
-		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
-	}
+	s.mqttClient = &client
+	reader := client.OptionsReader()
+	s.LogInfof("%s Connected to %s\n", reader.ClientID(), server)
 	return err
 }
 
 //Close implements the interface by closing the MQTT client
-func (s *plcConnectorMQTT) Close() error {
+func (s *plcConnectorMQTTv3) Close() error {
 	if s.mqttClient == nil {
 		return nil
 	}
-	disconnStruct := &mqtt.Disconnect{
-		Properties: nil,
-		ReasonCode: 0,
-	}
-	err := s.mqttClient.Disconnect(disconnStruct)
-	if err == nil {
-		s.mqttClient = nil
-	}
+	client := *s.mqttClient
+	client.Disconnect(250)
+	time.Sleep(1 * time.Second)
 	s.LogInfof("PLC Connection Closed\n")
-	return err
+	return nil
 }
 
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
-func (s *plcConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *plcConnectorMQTTv3) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	_ = inTagDefs
 	//TODO - need top figure out what topic/message to publish that will request a read from the PLC
 	//  messaging partner
@@ -166,7 +143,7 @@ func (s *plcConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domai
 }
 
 //WriteTags implements the interface by generating an MQTT message to the PLC, waiting for the result
-func (s *plcConnectorMQTT) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *plcConnectorMQTTv3) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	_ = outTagDefs
 	//TODO - need top figure out what topic/message to publish that will request a write from the PLC
 	//  messaging partner
@@ -174,12 +151,12 @@ func (s *plcConnectorMQTT) WriteTags(outTagDefs []domain.StdMessageStruct) []dom
 }
 
 //ListenForPlcTagChanges implements the interface by subscribing to topics and waiting for related messages
-func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
+func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
 	clientName := fmt.Sprintf("%s", changeFilter["Client"])
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	s.ChangeChannels[clientName] = c
 	//declare the handler for received messages
-	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.receivedMessageHandler)
+	//s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.receivedMessageHandler)
 	//need to subscribe to the topics in the changeFilter
 	var topicSet = make(map[string]struct{})
 	for key, val := range changeFilter {
@@ -189,6 +166,7 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 				var topic string = tmpl
 				topic = strings.Replace(topic, "<EQNAME>", clientName, -1)
 				topic = strings.Replace(topic, "<TAGNAME>", fmt.Sprintf("%s", val), -1)
+				s.LogDebug(topic)
 				var i, j int
 				i = strings.Index(topic, "<")
 				for i >= 0 {
@@ -200,13 +178,15 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 			}
 		}
 	}
+	s.LogDebug("topicSet....................")
+	s.LogDebug(topicSet)
 	for key := range topicSet {
 		s.LogDebugf("subscription topic: %s", key)
-		s.SubscribeToTopic(fmt.Sprintf("%v", key))
+		go s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
 
-func (s *plcConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+func (s *plcConnectorMQTTv3) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	_ = startTS
 	_ = endTS
 	_ = inTagDefs
@@ -218,42 +198,23 @@ func (s *plcConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inT
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *plcConnectorMQTT) SubscribeToTopic(topic string) {
-	subPropsStruct := &mqtt.SubscribeProperties{
-		SubscriptionIdentifier: nil,
-		User:                   nil,
+func (s *plcConnectorMQTTv3) SubscribeToTopic(topic string) {
+	c:= *s.mqttClient
+	if token := c.Subscribe(topic, 0, s.receivedMessageHandler); token.Wait() && token.Error() != nil {
+		s.LogError(token.Error())
 	}
-	var subMap = make(map[string]mqtt.SubscribeOptions)
-	subMap[topic] = mqtt.SubscribeOptions{
-		QoS:               0,
-		RetainHandling:    0,
-		NoLocal:           false,
-		RetainAsPublished: false,
-	}
-	subStruct := &mqtt.Subscribe{
-		Properties:    subPropsStruct,
-		Subscriptions: subMap,
-	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
-	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
-	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
-	}
+	s.LogDebug("subscribed to "+topic)
 }
 
-func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
+func (s *plcConnectorMQTTv3) receivedMessageHandler(client mqtt.Client, msg mqtt.Message) {
 	s.LogDebug("BEGIN tagChangeHandler")
-	tokenMap := s.parseTopic(m.Topic)
+	tokenMap := s.parseTopic(msg.Topic())
 	tagStruct := domain.StdMessageStruct{
 		OwningAsset: tokenMap["EQNAME"],
 		ItemName:    tokenMap["TAGNAME"],
-		ItemValue:   string(m.Payload),
+		ItemValue:   string(msg.Payload()),
 		TagQuality:  128,
 		Err:         nil,
-		ChangedTime: time.Now(),
-		//Category:    tokenMap["CATEGORY"],
-
 	}
 	if tagStruct.ItemName == "" {
 		tagStruct.ItemNameExt = make(map[string]string)
@@ -266,7 +227,7 @@ func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
 	s.ChangeChannels[tokenMap["EQNAME"]] <- tagStruct
 }
 
-func (s *plcConnectorMQTT) parseTopic(topic string) map[string]string {
+func (s *plcConnectorMQTTv3) parseTopic(topic string) map[string]string {
 	ret := map[string]string{}
 	for _, re := range s.topicParseRegExpList {
 		if re.MatchString(topic) {
@@ -281,4 +242,49 @@ func (s *plcConnectorMQTT) parseTopic(topic string) map[string]string {
 		}
 	}
 	return ret
+}
+func newTLSConfig() *tls.Config {
+	// Import trusted certificates from CAfile.pem.
+	// Alternatively, manually add CA certificates to
+	// default openssl CA bundle.
+	certpool := x509.NewCertPool()
+	pemCerts, err := ioutil.ReadFile("samplecerts/CAfile.pem")
+	if err == nil {
+		certpool.AppendCertsFromPEM(pemCerts)
+	}
+
+	// Import client certificate/key pair
+	cert, err := tls.LoadX509KeyPair("samplecerts/client-crt.pem", "samplecerts/client-key.pem")
+	if err != nil {
+		log.Println(err)
+	}
+	if cert.Certificate != nil {
+		cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(cert.Leaf)
+		// Just to print out the client certificate..
+		cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(cert.Leaf)
+	}
+	// Create tls.Config with desired tls properties
+	return &tls.Config{
+		// RootCAs = certs used to verify server cert.
+		RootCAs: certpool,
+		// ClientAuth = whether to request cert from server.
+		// Since the server is set up for SSL, this happens
+		// anyways.
+		ClientAuth: tls.NoClientCert,
+		// ClientCAs = certs used to validate client cert.
+		ClientCAs: nil,
+		// InsecureSkipVerify = verify that cert contents
+		// match server. IP matches what is in cert etc.
+		InsecureSkipVerify: true,
+		// Certificates = list of certs client sends to server.
+		Certificates: []tls.Certificate{cert},
+	}
 }

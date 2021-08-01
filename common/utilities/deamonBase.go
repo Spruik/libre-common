@@ -2,6 +2,7 @@ package utilities
 
 import (
 	"fmt"
+	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
@@ -16,29 +17,29 @@ type DaemonBase struct {
 	libreConfig.ConfigurationEnabler
 	libreLogger.LoggingEnabler
 
-	name                  string
-	state                 ports.DaemonStateIF
-	initializationFxn     func(d ports.DaemonIF, params map[string]interface{}) error
-	controlFxns           map[ports.DaemonCommandIF]ports.DaemonCommandFunction
-	oneProcessingCycleFxn func(d ports.DaemonIF) (int, error)
-	cleanupFxn            func(d ports.DaemonIF, params map[string]interface{}) error
-	daemonChildren        []ports.DaemonIF
-	parentWaitGroup       *sync.WaitGroup
-	localWaitGroup        sync.WaitGroup
-	adminChannel          chan ports.DaemonAdminCommand
-	terminationWaitGroup  *sync.WaitGroup
-	commandMutex          sync.Mutex
+	name                   string
+	state                  ports.DaemonStateIF
+	initializationFxn      func(d ports.DaemonIF, params map[string]interface{}) error
+	controlFxns            map[ports.DaemonCommandIF]ports.DaemonCommandFunction
+	oneProcessingCycleFxn  func(d ports.DaemonIF) (int, error)
+	cleanupFxn             func(d ports.DaemonIF, params map[string]interface{}) error
+	daemonChildren         []ports.DaemonIF
+	parentWaitGroup        *sync.WaitGroup
+	localWaitGroup         sync.WaitGroup
+	adminChannel           chan ports.DaemonAdminCommand
+	terminationWaitGroup   *sync.WaitGroup
+	commandMutex           sync.Mutex
+	acceptCommandWaitLimit time.Duration
 }
 
 func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync.WaitGroup, configHook string) *DaemonBase {
 	d := DaemonBase{}
 	d.SetConfigCategory(configHook)
-	hook, err := d.GetConfigItemWithDefault("loggerHook", "DAEMON")
-	if err == nil {
-		d.SetLoggerConfigHook(hook)
-	} else {
-		panic(fmt.Sprintf("Configuration Failure in NewDaemon: %s", err))
+	loggerHook, cerr := d.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
 	}
+	d.SetLoggerConfigHook(loggerHook)
 	d.name = name
 	d.parentWaitGroup = parentWG
 	d.state = initialState
@@ -57,6 +58,13 @@ func NewDaemonBase(name string, initialState ports.DaemonStateIF, parentWG *sync
 	d.adminChannel = make(chan ports.DaemonAdminCommand)
 	d.terminationWaitGroup = nil
 	d.commandMutex = sync.Mutex{}
+	acceptLimitStr, derr := d.GetConfigItemWithDefault("commandWaitDuration", "1000ms")
+	if derr == nil {
+		d.acceptCommandWaitLimit, derr = time.ParseDuration(acceptLimitStr)
+	}
+	if derr != nil {
+		d.LogWarnf("Failed to configure Daemon '%s' commandWaitDuration - expecting a valid Go duration string such as '1000ms'.  Error=%s", d.name, derr)
+	}
 	return &d
 }
 
@@ -98,16 +106,16 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 		var run = true
 		var processed = 0
 		for run {
-			d.LogDebug(d.name, "calling acceptCommand while in state=", d.state)
+			d.LogDebug(d.name, "calling acceptCommand while in state=", d.state.GetStateName())
 			err = d.acceptCommand()
 			if err != nil {
 				panic(err)
 			}
 			if d.state.IsTerminalState() {
-				d.LogInfo(d.name, "latest command resulted in a terminal state - ending", d.state)
+				d.LogInfo(d.name, "latest command resulted in a terminal state - ending", d.state.GetStateName())
 				run = false
 			} else {
-				d.LogDebug(d.name, "considering a cycle ", run, d.state)
+				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
 				if run && d.state.CanExecuteCycles() {
 					d.LogDebug(d.name, "starting a cycle")
 					processed, err = d.oneProcessingCycleFxn(d)
@@ -120,7 +128,7 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 				}
 			}
 		}
-		d.LogDebug(d.name, "calling cleanup while in state=", d.state)
+		d.LogDebug(d.name, "calling cleanup while in state=", d.state.GetStateName())
 		err = d.cleanupFxn(d, params)
 		if err != nil {
 			panic(err)
@@ -134,13 +142,13 @@ func (d *DaemonBase) acceptCommand() error {
 	d.LogDebug(d.name, "checking for command")
 	select {
 	case chgCmd := <-d.adminChannel:
-		d.LogDebug(d.name, "got command", chgCmd.Cmd)
+		d.LogDebug(d.name, "got command", chgCmd.Cmd.GetCommandName())
 		if d.parentWaitGroup != nil {
-			d.LogDebug(d.name, "incrementing parent waitgroup", d.parentWaitGroup)
+			d.LogDebug(d.name, "incrementing parent waitgroup")
 			d.parentWaitGroup.Add(1)
 			defer d.parentWaitGroup.Done()
 		}
-		var resp map[string]interface{}
+		resp := map[string]interface{}{}
 		d.LogDebugf("%s looking for a function to implement %s where map is: %+v", d.name, chgCmd.Cmd.GetCommandName(), d.formatControlFxnMap())
 		cmdFxn := d.controlFxns[chgCmd.Cmd]
 		d.LogDebugf("%s looked for a function to implement %s where map is: %+v", d.name, chgCmd.Cmd.GetCommandName(), d.formatControlFxnMap())
@@ -150,12 +158,12 @@ func (d *DaemonBase) acceptCommand() error {
 			if err != nil {
 				panic(err)
 			}
-			d.LogDebug(d.name, "processed command message", chgCmd.Cmd)
+			d.LogDebug(d.name, "processed command message", chgCmd.Cmd.GetCommandName())
 		}
 		if len(d.daemonChildren) > 0 {
-			d.LogDebugf("%s start sending %s command to children with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
+			d.LogDebugf("%s start sending %s command to children", d.name, chgCmd.Cmd.GetCommandName())
 			for _, child := range d.daemonChildren {
-				d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd)
+				d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd.GetCommandName())
 				childresp, err := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
 				if err != nil {
 					panic(err)
@@ -163,14 +171,14 @@ func (d *DaemonBase) acceptCommand() error {
 				if childresp != nil {
 					resp[child.GetName()] = childresp
 				}
-				d.LogDebug(d.name, "sent command message to child", child.GetName(), chgCmd.Cmd)
+				d.LogDebug(d.name, "sent command message to child", child.GetName(), chgCmd.Cmd.GetCommandName())
 			}
-			d.LogDebugf("%s waiting for child completion of %s with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
+			d.LogDebugf("%s waiting for child completion of %s", d.name, chgCmd.Cmd.GetCommandName())
 			d.localWaitGroup.Wait()
-			d.LogDebugf("%s done waiting for child completion of %s with localWaitGroup=%+v", d.name, chgCmd.Cmd, d.localWaitGroup)
+			d.LogDebugf("%s done waiting for child completion of %s", d.name, chgCmd.Cmd.GetCommandName())
 		}
 		if chgCmd.Cmd.HasTargetState() {
-			d.LogDebug("SETTING TARGET STATE TO ", chgCmd.Cmd.GetTargetState())
+			d.LogInfof("DAEMON '%s' SETTING STATE TO %s", d.name, chgCmd.Cmd.GetTargetState().GetStateName())
 			d.SetState(chgCmd.Cmd.GetTargetState())
 		}
 		if len(resp) > 0 {
@@ -179,9 +187,10 @@ func (d *DaemonBase) acceptCommand() error {
 			chgCmd.Results = nil
 		}
 		d.adminChannel <- chgCmd
-	case <-time.After(time.Second):
+	case <-time.After(d.acceptCommandWaitLimit):
+		d.LogDebugf("%s waited %+v for a command and did not receive one", d.name, d.acceptCommandWaitLimit)
 	}
-	d.LogDebugf(d.name, "done checking for command.  err=%s ", err)
+	d.LogDebug(d.name, "done checking for command.  err=%+v ", err)
 	return err
 }
 
@@ -235,6 +244,22 @@ func (d *DaemonBase) RemoveCommandFxn(cmd ports.DaemonCommandIF) {
 func (d *DaemonBase) AddDaemonChild(DaemonChild ports.DaemonIF) {
 	DaemonChild.SetWaitGroup(&d.localWaitGroup)
 	d.daemonChildren = append(d.daemonChildren, DaemonChild)
+}
+func (d *DaemonBase) RemoveDaemonChild(DaemonChild ports.DaemonIF) {
+	_, err := DaemonChild.SubmitCommand(DaemonEndCommand, nil)
+	if err != nil {
+		d.LogErrorf("%s FAILED END COMMAND DURING REMOVE OF CHILD %s", d.name, DaemonChild.GetName())
+	}
+	var delndx int = -1
+	for ndx := 0; ndx < len(d.daemonChildren); ndx++ {
+		if d.daemonChildren[ndx] == DaemonChild {
+			delndx = ndx
+			break
+		}
+	}
+	if delndx != -1 {
+		d.daemonChildren = append(d.daemonChildren[:delndx], d.daemonChildren[delndx+1:]...)
+	}
 }
 func (d *DaemonBase) SubmitCommand(cmd ports.DaemonCommandIF, params map[string]interface{}) (map[string]interface{}, error) {
 	d.LogDebugf("SubmitCommand called to send %s to %s ", cmd.GetCommandName(), d.name)

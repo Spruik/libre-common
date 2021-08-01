@@ -18,6 +18,30 @@ func GetActiveEquipmentByLevel(txn ports.LibreDataStoreTransactionPort, level st
 	return q.QueryEquipment, err
 }
 
+func GetActiveEquipmentByLevelList(txn ports.LibreDataStoreTransactionPort, levels []domain.EquipmentElementLevel) ([]domain.Equipment, error) {
+	var q struct {
+		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{isActive: true, and: {equipmentLevel: {in: $levels}}}) "`
+	}
+	variables := map[string]interface{}{
+		"levels": levels,
+	}
+	err := txn.ExecuteQuery(&q, variables)
+	return q.QueryEquipment, err
+}
+
+func GetActiveEquipmentByLevelListWithIncExc(txn ports.LibreDataStoreTransactionPort, levels []domain.EquipmentElementLevel, includeIds []string, excludeIds []string) ([]domain.Equipment, error) {
+	var q struct {
+		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{isActive: true, and: {equipmentLevel: {in: $levels}, or: {id:$includeIds}, and: {not:{id:$excludeIds}}}}) "`
+	}
+	variables := map[string]interface{}{
+		"levels":     levels,
+		"includeIds": includeIds,
+		"excludeIds": excludeIds,
+	}
+	err := txn.ExecuteQuery(&q, variables)
+	return q.QueryEquipment, err
+}
+
 func GetEquipmentByName(txn ports.LibreDataStoreTransactionPort, eqName string) (domain.Equipment, error) {
 	var q struct {
 		QueryEquipment []domain.Equipment `graphql:"queryEquipment (filter:{name:{eq:$eqName}}) "`
@@ -106,17 +130,21 @@ func GetAliasEquipmentNameForSystem(txn ports.LibreDataStoreTransactionPort, sys
 	return "", err
 }
 
-func GetPropertyNameForSystemAlias(txn ports.LibreDataStoreTransactionPort, system string, externalName string) (string, error) {
+func GetPropertyNameForSystemAlias(txn ports.LibreDataStoreTransactionPort, system string, externalName string, eqName string) (string, error) {
 	var q struct {
 		QueryPropertyNameAlias []struct {
 			Property struct {
 				Name string
 			}
+			Equipment struct {
+				Name string
+			} `graphql:"equipment(filter:{name: {eq: $eqName})"`
 			Alias  string
 			System string
 		} `graphql:"queryPropertyNameAlias(filter:{alias: {alloftext: $extName} system: {alloftext: $system}})"`
 	}
 	variables := map[string]interface{}{
+		"eqName":  graphql.String(eqName),
 		"extName": graphql.String(externalName),
 		"system":  graphql.String(system),
 	}
@@ -125,6 +153,35 @@ func GetPropertyNameForSystemAlias(txn ports.LibreDataStoreTransactionPort, syst
 		return q.QueryPropertyNameAlias[0].Property.Name, err
 	}
 	return "", err
+}
+
+func GetAliasPropertyNamesForSystem(txn ports.LibreDataStoreTransactionPort, system string, eqName string) (map[string]string, error) {
+	q := struct {
+		QueryPropertyNameAlias []struct {
+			Property struct {
+				Id   string `json:"id"`
+				Name string `json:"name"`
+			}
+			Equipment struct {
+				Name string
+			} `graphql:"equipment(filter:{name: {eq: $eqName}})"`
+			Alias  string
+			System string
+		} `graphql:"queryPropertyNameAlias(filter:{system: {alloftext: $system}}) @cascade "`
+	}{}
+	variables := map[string]interface{}{
+		"eqName": graphql.String(eqName),
+		"system": graphql.String(system),
+	}
+	err := txn.ExecuteQuery(&q, variables)
+	if err == nil {
+		ret := map[string]string{}
+		for _, j := range q.QueryPropertyNameAlias {
+			ret[j.Property.Name] = j.Alias
+		}
+		return ret, nil
+	}
+	return nil, err
 }
 
 func GetAliasPropertyNameForSystem(txn ports.LibreDataStoreTransactionPort, system string, internalName string, eqName string) (string, error) {
@@ -140,11 +197,15 @@ func GetAliasPropertyNameForSystem(txn ports.LibreDataStoreTransactionPort, syst
 						Id   string `json:"id"`
 						Name string `json:"name"`
 					} `graphql:"property(filter:{id:[$propId]})"`
+					Equipment struct {
+						Name string
+					} `graphql:"equipment(filter:{name: {eq: $eqName})"`
 					Alias  string
 					System string
 				} `graphql:"queryPropertyNameAlias(filter:{system: {alloftext: $system}}) @cascade "`
 			}{}
 			variables := map[string]interface{}{
+				"eqName": graphql.String(eqName),
 				"propId": graphql.ID(targetProp.Id),
 				"system": graphql.String(system),
 			}

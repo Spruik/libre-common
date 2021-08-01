@@ -34,7 +34,10 @@ func NewPlcConnectorOPCUA(configHook string) *plcConnectorOPCUA {
 		ChangeChannels: map[string]chan domain.StdMessageStruct{},
 	}
 	s.SetConfigCategory(configHook)
-	loggerHook, _ := s.GetConfigItemWithDefault("loggerHook", "OPCUA")
+	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
+	if cerr != nil {
+		loggerHook = domain.DEFAULT_LOGGER_NAME
+	}
 	s.SetLoggerConfigHook(loggerHook)
 	s.aliasSystem, _ = s.GetConfigItemWithDefault("aliasSystem", "OPCUA")
 	return &s
@@ -116,10 +119,12 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 		log.Printf("error: sub=%d err=%s", sub.SubscriptionID(), err.Error())
 	})
 
+	aliasMap := s.buildAliasMapForEquipment(clientName)
 	nodeNames := make([]string, 0, 0)
 	for key, val := range changeFilter {
 		if strings.Index(key, "Topic") == 0 {
-			var extName string = s.getAliasForPropName(fmt.Sprintf("%s", val), clientName)
+			//var extName string = s.getAliasForPropName(fmt.Sprintf("%s", val), clientName)
+			var extName string = aliasMap[fmt.Sprintf("%s", val)]
 			if strings.Index(fmt.Sprintf("%s", extName), "ns=") == 0 {
 				//node has a good OPCUA name, so subscribe
 				nodeNames = append(nodeNames, fmt.Sprintf("%s", extName))
@@ -128,23 +133,34 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 			}
 		}
 	}
-	s.startChanSub(clientName, s.connectionContext, m, time.Second*5, 0, nodeNames...)
+	go s.startChanSub(clientName, s.connectionContext, m, time.Second*5, 0, nodeNames...)
 }
 
-func (s *plcConnectorOPCUA) getAliasForPropName(stdPropName string, eqName string) string {
+func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]string {
 	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
 	defer txn.Dispose()
-	extName, err := queries.GetAliasPropertyNameForSystem(txn, s.aliasSystem, stdPropName, eqName)
+	ret, err := queries.GetAliasPropertyNamesForSystem(txn, s.aliasSystem, eqName)
 	if err == nil {
-		return extName
+		return ret
+	} else {
+		panic(err)
 	}
-	return stdPropName
 }
 
-func (s *plcConnectorOPCUA) getPropNameForAlias(extName string) string {
+//func (s *plcConnectorOPCUA) getAliasForPropName(stdPropName string, eqName string) string {
+//	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
+//	defer txn.Dispose()
+//	extName, err := queries.GetAliasPropertyNameForSystem(txn, s.aliasSystem, stdPropName, eqName)
+//	if err == nil {
+//		return extName
+//	}
+//	return stdPropName
+//}
+
+func (s *plcConnectorOPCUA) getPropNameForAlias(extName string, eqName string) string {
 	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "stdCheck")
 	defer txn.Dispose()
-	intName, err := queries.GetPropertyNameForSystemAlias(txn, s.aliasSystem, extName)
+	intName, err := queries.GetPropertyNameForSystemAlias(txn, s.aliasSystem, extName, eqName)
 	if err == nil {
 		return intName
 	}
@@ -180,13 +196,14 @@ func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context,
 				log.Printf("%s[channel ] sub=%d error=%s", clientName, sub.SubscriptionID(), msg.Error)
 			} else {
 				log.Printf("%s[channel ] sub=%d ts=%s node=%s value=%v", clientName, sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
-				intName := s.getPropNameForAlias(msg.NodeID.String())
+				intName := s.getPropNameForAlias(msg.NodeID.String(), clientName)
 				tagData := domain.StdMessageStruct{
 					OwningAsset: "", //will be completed by channel listener
 					ItemName:    intName,
 					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
 					TagQuality:  128,
 					Err:         nil,
+					ChangedTime: msg.ServerTimestamp,
 				}
 				s.ChangeChannels[clientName] <- tagData
 			}

@@ -27,6 +27,7 @@ type DaemonIF interface {
 	AddCommandFxn(cmd DaemonCommandIF, fxn DaemonCommandFunction)
 	RemoveCommandFxn(cmd DaemonCommandIF)
 	AddDaemonChild(DaemonChild DaemonIF)
+	RemoveDaemonChild(DaemonChild DaemonIF)
 	SetTerminationWaitGroup(wg *sync.WaitGroup)
 	GetCommands() map[DaemonCommandIF]DaemonCommandFunction
 }
