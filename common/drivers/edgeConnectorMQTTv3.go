@@ -58,7 +58,7 @@ func NewEdgeConnectorMQTTv3(configHook string) *edgeConnectorMQTTv3 {
 // interface functions
 //
 //Connect implements the interface by creating an MQTT client
-func (s *edgeConnectorMQTTv3) Connect() error {
+func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	var useTlsStr string
 	var useTls bool
 	var err error
@@ -206,7 +206,6 @@ func (s *edgeConnectorMQTTv3) SubscribeToTopic(topic string) error {
 	c:= *s.mqttClient
 	if token := c.Subscribe(topic, 0, s.tagChangeHandler); token.Wait() && token.Error() != nil {
 		s.LogError(token.Error())
-		return token.Error()
 	}
 	s.LogDebug("subscribed to "+topic)
 	return nil
