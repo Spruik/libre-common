@@ -72,6 +72,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 			}
 		}
 	}
+	s.LogDebug("ServiceName = "+svcName)
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
@@ -79,6 +80,9 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(user)
 	opts.SetPassword(pwd)
+	opts.SetOrderMatters(false)
+	opts.SetKeepAlive(30 * time.Second)
+	opts.SetPingTimeout(2 * time.Second)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
@@ -86,14 +90,11 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://"+server)
-		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
+		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
 		//conn, err = net.Dial("tcp", server)
 		opts.AddBroker("tcp://"+server)
-		opts.SetClientID(svcName)
-		opts.SetKeepAlive(2 * 60 *time.Second)
-		opts.SetPingTimeout(1 * time.Second)
 	}
 	if err != nil {
 

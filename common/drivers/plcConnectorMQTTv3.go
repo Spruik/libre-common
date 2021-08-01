@@ -10,8 +10,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"io/ioutil"
 	"log"
-	"os"
-
 	//"os"
 
 	//"net"
@@ -85,9 +83,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
-	mqtt.ERROR = log.New(os.Stdout, "[ERROR] ", 0)
-	mqtt.CRITICAL = log.New(os.Stdout, "[CRIT] ", 0)
-	mqtt.WARN = log.New(os.Stdout, "[WARN]  ", 0)
+
 	opts := mqtt.NewClientOptions()
 	opts.SetUsername(user)
 	opts.SetPassword(pwd)
