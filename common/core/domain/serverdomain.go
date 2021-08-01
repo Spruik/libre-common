@@ -33,6 +33,8 @@ type StdMessageStruct struct {
 	Err           error
 	ChangedTime   time.Time
 	Category      string
+	Topic		  string
+	ReplyTopic    string
 }
 
 type EquipmentPropertyDescriptor struct {

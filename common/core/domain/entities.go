@@ -1,5 +1,7 @@
 package domain
 
+import "encoding/json"
+
 type IdNameTypenameRef struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
@@ -78,4 +80,14 @@ type EventDefinition struct {
 		FieldType  string `json:"fieldType"`
 	} `json:"payloadFields"`
 	PayloadProperties []Property `json:"payloadProperties"`
+}
+type DataSubscription struct {
+	//Type string
+	// enumeration. expected values of QUERY, MUTATION
+	SubscriptionId string `json:"subscriptionId,omitempty"`
+	Id string `json:"id,omitempty"`
+	Query string `json:"query,omitempty"`
+	Topic string `json:"topic,omitempty"`
+	Status string `json:"status,omitempty"`
+	Channel chan *json.RawMessage `json:"-"`
 }
