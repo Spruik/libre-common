@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -32,6 +31,7 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 		publish:   publish,
 		ticker:    nil,
 		eval:      make(chan bool),
+		cache:     map[string]domain.WorkCalendarEntryType{},
 	}
 
 	ret.SetConfigCategory(configHook)
@@ -40,6 +40,8 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 		loggerHook = domain.DEFAULT_LOGGER_NAME
 	}
 	ret.SetLoggerConfigHook(loggerHook)
+
+	// TODO: Populate Cache with what ever is already in the ports.LibreConnectorPort
 
 	return &ret
 }
@@ -62,6 +64,7 @@ func (s *calendarService) Start() (err error) {
 	if s.ticker == nil {
 		s.ticker = time.NewTicker(10 * time.Second)
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
+		s.calculateCalendars()
 		if err != nil {
 			s.ticker.Stop()
 			return err
@@ -72,7 +75,7 @@ func (s *calendarService) Start() (err error) {
 				case <-s.eval:
 					return
 				case t := <-s.ticker.C:
-					fmt.Println("Tick at ", t)
+					s.LogDebug("Tick at ", t)
 					s.calculateCalendars()
 				}
 			}
