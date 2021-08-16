@@ -32,6 +32,7 @@ type StdMessageStruct struct {
 	TagQuality    int
 	Err           error
 	ChangedTime   time.Time
+	OldChangedTime   time.Time
 	Category      string
 	Topic		  string
 	ReplyTopic    string
