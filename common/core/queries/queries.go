@@ -141,7 +141,7 @@ func GetPropertyNameForSystemAlias(txn ports.LibreDataStoreTransactionPort, syst
 			} `graphql:"equipment(filter:{name: {eq: $eqName}})"`
 			Alias  string
 			System string
-		} `graphql:"queryPropertyNameAlias(filter:{alias: {alloftext: $extName} system: {alloftext: $system}})"`
+		} `graphql:"queryPropertyNameAlias(filter:{alias: {eq: $extName} system: {eq: $system}}) @cascade"`
 	}
 	variables := map[string]interface{}{
 		"eqName":  graphql.String(eqName),
