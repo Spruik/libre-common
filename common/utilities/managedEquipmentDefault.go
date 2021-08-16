@@ -6,6 +6,7 @@ import (
 	"github.com/Spruik/libre-common/common/core/queries"
 	"github.com/Spruik/libre-configuration"
 	"github.com/Spruik/libre-logging"
+	"sync"
 	"time"
 )
 
@@ -15,7 +16,7 @@ type managedEquipmentDefault struct {
 
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
-
+	mu sync.Mutex
 	EquipInst      domain.Equipment
 	ConfigLevel    int
 	RequestChannel chan domain.EquipmentServiceRequest
@@ -98,6 +99,8 @@ func getAllPropertiesForEquipment(txn ports.LibreDataStoreTransactionPort, eqId 
 }
 
 func (s *managedEquipmentDefault) UpdatePropertyValue(propName string, propValue interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	pd, exists := s.props[propName]
 	if exists {
 		val, err := domain.ConvertPropertyValueStringToTypedValue(pd.DataType, propValue)
@@ -115,6 +118,8 @@ func (s *managedEquipmentDefault) UpdatePropertyValue(propName string, propValue
 }
 
 func (s *managedEquipmentDefault) AddEvent(eventName string, eventDesc domain.EquipmentEventDescriptor) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	_ = eventName
 	//TODO - figure out event strucuture (start/end?)
 	s.events = append(s.events, eventDesc)
@@ -122,31 +127,47 @@ func (s *managedEquipmentDefault) AddEvent(eventName string, eventDesc domain.Eq
 }
 
 func (s *managedEquipmentDefault) GetPropertyValue(propName string) interface{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.props[propName].Value
 }
 func (s *managedEquipmentDefault) GetProperty(name string) domain.EquipmentPropertyDescriptor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.props[name]
 }
 
 func (s *managedEquipmentDefault) SetConfigLevel(level int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.ConfigLevel = level
 }
 
 func (s *managedEquipmentDefault) GetConfigLevel() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.ConfigLevel
 }
 
 func (s *managedEquipmentDefault) GetEquipmentId() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.EquipInst.Id
 }
 
 func (s *managedEquipmentDefault) GetEquipmentName() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.EquipInst.Name
 }
 func (s *managedEquipmentDefault) GetEquipmentDescription() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.EquipInst.Description
 }
 func (s *managedEquipmentDefault) GetEquipmentLevel() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return string(s.EquipInst.EquipmentLevel)
 }
 
@@ -194,10 +215,14 @@ func (s *managedEquipmentDefault) AcceptRequest(tagChangeHandlers *[]ports.TagCh
 }
 
 func (s *managedEquipmentDefault) GetPropertyMap() map[string]domain.EquipmentPropertyDescriptor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.props
 }
 
 func (s *managedEquipmentDefault) GetEventList() *[]domain.EquipmentEventDescriptor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return &s.events
 }
 
