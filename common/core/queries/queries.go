@@ -302,3 +302,42 @@ func GetEquipmentElementLevels(txn ports.LibreDataStoreTransactionPort, eventDef
 	}
 	return ret, err
 }
+
+func GetAllActiveWorkCalendar(txn ports.LibreDataStoreTransactionPort) ([]domain.WorkCalendar, error) {
+	var q struct {
+		QueryWorkCalendar []struct {
+			Id          graphql.String                       `json:"id"`
+			IsActive    graphql.Boolean                      `json:"isActive"`
+			Name        graphql.String                       `json:"name"`
+			Description graphql.String                       `json:"description"`
+			Definition  []domain.WorkCalendarDefinitionEntry `graphql:"definition(filter:{isActive:true}) "`
+			Equipment   []struct {
+				Id       graphql.String  `json:"id"`
+				Name     graphql.String  `json:"name"`
+				IsActive graphql.Boolean `json:"isActive"`
+			} `graphql:"equipment(filter:{isActive:true}) "`
+		} `graphql:"queryWorkCalendar(filter:{isActive:true})"`
+	}
+	err := txn.ExecuteQuery(&q, nil)
+	ret := make([]domain.WorkCalendar, len(q.QueryWorkCalendar))
+	for i, cal := range q.QueryWorkCalendar {
+		equipment := make([]domain.Equipment, len(cal.Equipment))
+		for j, equip := range cal.Equipment {
+			if equip.IsActive {
+				equipment[j] = domain.Equipment{
+					Id:   string(equip.Id),
+					Name: string(equip.Name),
+				}
+			}
+		}
+		ret[i] = domain.WorkCalendar{
+			Id:          string(cal.Id),
+			IsActive:    bool(cal.IsActive),
+			Name:        string(cal.Name),
+			Description: string(cal.Description),
+			Equipment:   equipment,
+			Definition:  cal.Definition,
+		}
+	}
+	return ret, err
+}
