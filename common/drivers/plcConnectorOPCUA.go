@@ -181,9 +181,20 @@ func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, in
 //
 func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context, m *monitor.NodeMonitor, interval, lag time.Duration, nodes ...string) {
 	ch := make(chan *monitor.DataChangeMessage, 16)
-	sub, err := m.ChanSubscribe(ctx, &opcua.SubscriptionParameters{Interval: interval}, ch, nodes...)
+	log.Printf("Opening a channel subscription")
+	//Open a new channel, don't add the nodes just yet
+	sub, err := m.ChanSubscribe(ctx, &opcua.SubscriptionParameters{Interval: interval}, ch)
 	if err != nil {
 		log.Fatal(err)
+	}
+	log.Printf("Adding nodes to channel subscription:")
+	//Add the nodes one by one so their names appear in the log
+	for i := range nodes {
+		log.Printf("Adding node: %s", nodes[i])
+		err := sub.AddNodes(nodes[i])
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Printf("%s subscribed with id=%d  (%+v)", clientName, sub.SubscriptionID(), nodes)
 
