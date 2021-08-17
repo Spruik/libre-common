@@ -144,7 +144,7 @@ func (s *calendarService) calculateCalendars() {
 					TagQuality:    1,
 					Err:           nil,
 					ChangedTime:   time.Now(),
-					Category:      "WorkCalendar",
+					Category:      "TAGDATA",
 					Topic:         equip.Name + "/workCalendarCategory",
 				}
 
