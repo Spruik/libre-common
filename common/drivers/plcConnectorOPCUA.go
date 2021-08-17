@@ -74,7 +74,7 @@ func (s *plcConnectorOPCUA) Connect() error {
 		opcua.SecurityFromEndpoint(endpoint, ua.UserTokenTypeAnonymous),
 	}
 
-	override, err := s.GetConfigItem("OVERRIDE_ENDPOINTURL")
+  override, err := s.GetConfigItem("OVERRIDE_ENDPOINTURL")
 	if err == nil {
 		s.uaClient = opcua.NewClient(override, opts...)
 	} else {
@@ -125,21 +125,21 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 		log.Printf("error: sub=%d err=%s", sub.SubscriptionID(), err.Error())
 	})
 
-	aliasMap := s.buildAliasMapForEquipment(clientName)
+	//aliasMap := s.buildAliasMapForEquipment(clientName)
 	nodeNames := make([]string, 0, 0)
 	for key, val := range changeFilter {
 		if strings.Index(key, "Topic") == 0 {
 			//var extName string = s.getAliasForPropName(fmt.Sprintf("%s", val), clientName)
-			var extName string = aliasMap[fmt.Sprintf("%s", val)]
-			if strings.Index(fmt.Sprintf("%s", extName), "ns=") == 0 {
+			//var extName string = aliasMap[fmt.Sprintf("%s", val)]
+			if strings.Index(fmt.Sprintf("%s", val), "ns=") == 0 {
 				//node has a good OPCUA name, so subscribe
-				nodeNames = append(nodeNames, fmt.Sprintf("%s", extName))
+				nodeNames = append(nodeNames, fmt.Sprintf("%s", val))
 			} else {
-				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", val, extName)
+				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", key, val)
 			}
 		}
 	}
-	go s.startChanSub(clientName, s.connectionContext, m, time.Second*5, 0, nodeNames...)
+	go s.startChanSub(clientName, s.connectionContext, m, time.Second*1, 0, nodeNames...)
 }
 
 func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]string {
@@ -187,9 +187,20 @@ func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, in
 //
 func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context, m *monitor.NodeMonitor, interval, lag time.Duration, nodes ...string) {
 	ch := make(chan *monitor.DataChangeMessage, 16)
-	sub, err := m.ChanSubscribe(ctx, &opcua.SubscriptionParameters{Interval: interval}, ch, nodes...)
+	log.Printf("Opening a channel subscription")
+	//Open a new channel, don't add the nodes just yet
+	sub, err := m.ChanSubscribe(ctx, &opcua.SubscriptionParameters{Interval: interval}, ch)
 	if err != nil {
 		log.Fatal(err)
+	}
+	log.Printf("Adding nodes to channel subscription:")
+	//Add the nodes one by one so their names appear in the log
+	for i := range nodes {
+		log.Printf("Adding node: %s", nodes[i])
+		err := sub.AddNodes(nodes[i])
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	log.Printf("%s subscribed with id=%d  (%+v)", clientName, sub.SubscriptionID(), nodes)
 
@@ -201,11 +212,11 @@ func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context,
 			if msg.Error != nil {
 				log.Printf("%s[channel ] sub=%d error=%s", clientName, sub.SubscriptionID(), msg.Error)
 			} else {
-				log.Printf("%s[channel ] sub=%d ts=%s node=%s value=%v", clientName, sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
-				intName := s.getPropNameForAlias(msg.NodeID.String(), clientName)
+				log.Printf("-----OPCUA Tag Value Received ---------%s[channel ] sub=%d ts=%s node=%s value=%v", clientName, sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
+//				intName := s.getPropNameForAlias(msg.NodeID.String(), clientName)
 				tagData := domain.StdMessageStruct{
 					OwningAsset: "", //will be completed by channel listener
-					ItemName:    intName,
+					ItemName:    msg.NodeID.String(),
 					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
 					TagQuality:  128,
 					Err:         nil,
