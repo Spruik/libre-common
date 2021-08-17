@@ -139,7 +139,7 @@ func (workCalendar *WorkCalendar) GetCurrentEntryType() (entryType WorkCalendarE
 	entryType = PlannedShutdown
 	entries, err := workCalendar.GetCurrentEntries()
 	if err != nil {
-		msg := fmt.Sprintf("work calendar: %s(%s). failed to get calendar entries due to %s", workCalendar.Name, workCalendar.ID, err)
+		msg := fmt.Sprintf("work calendar: %s(%s). failed to get calendar entries because %s", workCalendar.Name, workCalendar.ID, err)
 		return entryType, errors.New(msg)
 	}
 	for _, entry := range entries {
