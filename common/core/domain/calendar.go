@@ -175,7 +175,6 @@ func (workCalendar *WorkCalendar) GetEntriesAtTime(atTime time.Time) (entries []
 
 	// Filter for any that cover time
 	for _, defEntry := range defEntries {
-		fmt.Printf("Checking if %s is between %s and %s\n", atTime.Format(time.RFC3339), defEntry.StartDateTime.Format(time.RFC3339), defEntry.EndDateTime.Format(time.RFC3339))
 		if atTime.Before(defEntry.EndDateTime) && (defEntry.StartDateTime.Before(atTime) || defEntry.StartDateTime.Equal(atTime)) {
 			entries = append(entries, defEntry)
 		}
