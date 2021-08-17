@@ -33,7 +33,7 @@ type StdMessageStruct struct {
 	Err           error
 	ChangedTime   time.Time
 	Category      string
-	Topic		  string
+	Topic         string
 	ReplyTopic    string
 }
 

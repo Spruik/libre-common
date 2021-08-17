@@ -60,6 +60,7 @@ func NewPlcConnectorMQTTv3(configCategoryName string) *plcConnectorMQTTv3 {
 
 	return &s
 }
+
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // interface functions
@@ -79,7 +80,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 			}
 		}
 	}
-	s.LogDebug("ServiceName = "+svcName)
+	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
@@ -96,12 +97,12 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	}
 	if useTls {
 		tlsConfig := newTLSConfig()
-		opts.AddBroker("ssl://"+server)
+		opts.AddBroker("ssl://" + server)
 		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
 		//conn, err = net.Dial("tcp", server)
-		opts.AddBroker("tcp://"+server)
+		opts.AddBroker("tcp://" + server)
 	}
 	if err != nil {
 
@@ -195,11 +196,11 @@ func (s *plcConnectorMQTTv3) GetTagHistory(startTS time.Time, endTS time.Time, i
 // support functions
 //
 func (s *plcConnectorMQTTv3) SubscribeToTopic(topic string) {
-	c:= *s.mqttClient
+	c := *s.mqttClient
 	if token := c.Subscribe(topic, 0, s.receivedMessageHandler); token.Wait() && token.Error() != nil {
 		s.LogError(token.Error())
 	}
-	s.LogDebug("subscribed to "+topic)
+	s.LogDebug("subscribed to " + topic)
 }
 
 func (s *plcConnectorMQTTv3) receivedMessageHandler(client mqtt.Client, msg mqtt.Message) {
