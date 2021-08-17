@@ -1,6 +1,6 @@
 # Libre Common Library
 > Libre Manufacturing Data Platform common functions
-
+.
 The Common Library provides the following functions for various Libre Microservices:
 * Equipment Cache
 * Equipment Finder
