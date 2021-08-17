@@ -114,6 +114,7 @@ func (s *calendarService) Start() (err error) {
 
 func (s *calendarService) Stop() {
 	s.ticker.Stop()
+	s.LogInfo("Calendar Service Stopped\n")
 	s.eval <- true
 }
 
