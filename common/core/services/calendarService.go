@@ -10,11 +10,12 @@ import (
 )
 
 type calendarService struct {
-	dataStore     ports.CalendarPort
-	publish       ports.LibreConnectorPort
-	ticker        *time.Ticker
-	workCalendars []domain.WorkCalendar
-	eval          chan bool
+	dataStore      ports.CalendarPort
+	publish        ports.LibreConnectorPort
+	ticker         *time.Ticker
+	workCalendars  []domain.WorkCalendar
+	eval           chan bool
+	tickerDuration time.Duration
 
 	cache map[string]domain.WorkCalendarEntryType
 
@@ -25,13 +26,15 @@ type calendarService struct {
 	libreLogger.LoggingEnabler
 }
 
+// NewCalendarService bootstraps and creates a new Calendar Service
 func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish ports.LibreConnectorPort) *calendarService {
 	var ret = calendarService{
-		dataStore: dataStore,
-		publish:   publish,
-		ticker:    nil,
-		eval:      make(chan bool),
-		cache:     map[string]domain.WorkCalendarEntryType{},
+		dataStore:      dataStore,
+		publish:        publish,
+		ticker:         nil,
+		eval:           make(chan bool),
+		cache:          map[string]domain.WorkCalendarEntryType{},
+		tickerDuration: time.Second * 60,
 	}
 
 	ret.SetConfigCategory(configHook)
@@ -41,6 +44,18 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 	}
 	ret.SetLoggerConfigHook(loggerHook)
 
+	tickerDuration, err := ret.GetConfigItemWithDefault("tickDuration", "60s")
+	if err != nil {
+		ret.LogWarnf("failed to parse calendarService tickSpeed from configuration into duration: %s", tickerDuration)
+	}
+
+	dur, err := time.ParseDuration(tickerDuration)
+	if err != nil {
+		ret.LogWarnf("failed to parse calendarService tickSpeed %s into duration; using default %s", tickerDuration, ret.tickerDuration)
+	} else {
+		ret.tickerDuration = dur
+	}
+
 	// TODO: Populate Cache with what ever is already in the ports.LibreConnectorPort
 
 	return &ret
@@ -48,12 +63,18 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 
 var calendarServiceInstance *calendarService = nil
 
+// SetCalendarServiceInstance sets the current calendar service for this scope
 func SetCalendarServiceInstance(inst *calendarService) {
 	calendarServiceInstance = inst
 }
 
+// GetCalendarServiceInstance gets the current calendar service for this scope
 func GetCalendarServiceInstance() *calendarService {
 	return calendarServiceInstance
+}
+
+func (s *calendarService) SetTickSpeed(dur time.Duration) {
+	s.tickerDuration = dur
 }
 
 func (s *calendarService) GetAllActiveWorkCalendar() ([]domain.WorkCalendar, error) {
@@ -62,11 +83,11 @@ func (s *calendarService) GetAllActiveWorkCalendar() ([]domain.WorkCalendar, err
 
 func (s *calendarService) Start() (err error) {
 	if s.ticker == nil {
-		s.ticker = time.NewTicker(10 * time.Second)
+		s.ticker = time.NewTicker(s.tickerDuration)
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
 		s.calculateCalendars()
 		if err != nil {
-			s.ticker.Stop()
+			s.LogErrorf("calendarService tick failed; got %s", err)
 			return err
 		}
 		go func() {
@@ -83,7 +104,7 @@ func (s *calendarService) Start() (err error) {
 	} else {
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
 		if err != nil {
-			s.ticker.Stop()
+			s.LogErrorf("calendarService tick failed; got %s", err)
 			return err
 		}
 		s.ticker.Reset(0)
@@ -98,7 +119,7 @@ func (s *calendarService) Stop() {
 
 func (s *calendarService) calculateCalendars() {
 	for _, workCalendar := range s.workCalendars {
-		s.LogDebugf("processing work calendar: %s(%s)\n", workCalendar.Name, workCalendar.Id)
+		s.LogDebugf("processing work calendar: %s(%s)\n", workCalendar.Name, workCalendar.ID)
 		if workCalendar.IsActive && len(workCalendar.Equipment) > 0 {
 
 			// Get Current WorkCalendar EntryType

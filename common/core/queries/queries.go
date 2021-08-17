@@ -331,7 +331,7 @@ func GetAllActiveWorkCalendar(txn ports.LibreDataStoreTransactionPort) ([]domain
 			}
 		}
 		ret[i] = domain.WorkCalendar{
-			Id:          string(cal.Id),
+			ID:          string(cal.Id),
 			IsActive:    bool(cal.IsActive),
 			Name:        string(cal.Name),
 			Description: string(cal.Description),
