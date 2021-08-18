@@ -56,8 +56,6 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 		ret.tickerDuration = dur
 	}
 
-	// TODO: Populate Cache with what ever is already in the ports.LibreConnectorPort
-
 	return &ret
 }
 
