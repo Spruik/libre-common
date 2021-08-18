@@ -46,6 +46,7 @@ const (
 	// Internal status, for logging only
 	GQL_INTERNAL OperationMessageType = "internal"
 )
+
 type errors []struct {
 	Message   string
 	Locations []struct {
@@ -53,6 +54,7 @@ type errors []struct {
 		Column int
 	}
 }
+
 // Error implements error interface.
 func (e errors) Error() string {
 	return e[0].Message

@@ -24,9 +24,10 @@ type libreConnectorMQTTv3 struct {
 	tagDataCategory string
 	eventCategory   string
 }
+
 /*
 The Libre Connector is currently only configured to Publish. It does not have channels implemented for subscribing.
- */
+*/
 func NewLibreConnectorMQTTv3(configHook string) *libreConnectorMQTTv3 {
 	s := libreConnectorMQTTv3{
 		mqttClient: nil,
@@ -75,12 +76,12 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	}
 	if useTls {
 		tlsConfig := newTLSConfig()
-		opts.AddBroker("ssl://"+server)
+		opts.AddBroker("ssl://" + server)
 		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
 		//conn, err = net.Dial("tcp", server)
-		opts.AddBroker("tcp://"+server)
+		opts.AddBroker("tcp://" + server)
 		opts.SetClientID(svcName)
 		opts.SetKeepAlive(2 * 60 * time.Second)
 		opts.SetPingTimeout(1 * time.Second)
@@ -150,22 +151,22 @@ func (s *libreConnectorMQTTv3) ListenForGetTagHistoryRequest(c chan []domain.Std
 // support functions
 //
 func (s *libreConnectorMQTTv3) SubscribeToTopic(topic string) {
-	c:= *s.mqttClient
+	c := *s.mqttClient
 	if token := c.Subscribe(topic, 0, s.receivedMessageHandler); token.Wait() && token.Error() != nil {
 		s.LogError(token.Error())
 	}
-	s.LogDebug("subscribed to "+topic)
+	s.LogDebug("subscribed to " + topic)
 }
 
 func (s *libreConnectorMQTTv3) receivedMessageHandler(client mqtt.Client, msg mqtt.Message) {
-	s.LogDebug("RECEIVED MESSAGE on topic:"+msg.Topic())
+	s.LogDebug("RECEIVED MESSAGE on topic:" + msg.Topic())
 	//ToDo: Implement receive handler for libreConnector
 }
 func (s *libreConnectorMQTTv3) send(topic string, message domain.StdMessageStruct) {
 	c := *s.mqttClient
 	jsonBytes, err := json.Marshal(message)
 	if err == nil {
-		token := c.Publish(topic,0,false, jsonBytes)
+		token := c.Publish(topic, 0, false, jsonBytes)
 		token.Wait()
 		if token.Error() != nil {
 			s.LogErrorf("mqtt publish error : %s ", token.Error())

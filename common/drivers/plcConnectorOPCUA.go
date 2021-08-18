@@ -3,6 +3,10 @@ package drivers
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/queries"
 	"github.com/Spruik/libre-common/common/core/services"
@@ -11,9 +15,6 @@ import (
 	"github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/monitor"
 	"github.com/gopcua/opcua/ua"
-	"log"
-	"strings"
-	"time"
 )
 
 type plcConnectorOPCUA struct {
@@ -73,7 +74,12 @@ func (s *plcConnectorOPCUA) Connect() error {
 		opcua.SecurityFromEndpoint(endpoint, ua.UserTokenTypeAnonymous),
 	}
 
-	s.uaClient = opcua.NewClient(endpointStr, opts...)
+  override, err := s.GetConfigItem("OVERRIDE_ENDPOINTURL")
+	if err == nil {
+		s.uaClient = opcua.NewClient(override, opts...)
+	} else {
+		s.uaClient = opcua.NewClient(endpoint.EndpointURL, opts...)
+	}
 	err = s.uaClient.Connect(s.connectionContext)
 	if err == nil {
 		s.LogInfof("OPCUA", "Connected to OPCUA server at: %s", endpoint.EndpointURL)

@@ -53,6 +53,7 @@ func NewEdgeConnectorMQTTv3(configHook string) *edgeConnectorMQTTv3 {
 	s.topicParseRegExp = regexp.MustCompile(topicRE)
 	return &s
 }
+
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // interface functions
@@ -72,7 +73,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 			}
 		}
 	}
-	s.LogDebug("ServiceName = "+svcName)
+	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
 		panic("Failed to find configuration data for MQTT connection")
 	}
@@ -89,12 +90,12 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	if useTls {
 		tlsConfig := newTLSConfig()
-		opts.AddBroker("ssl://"+server)
+		opts.AddBroker("ssl://" + server)
 		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
 		//conn, err = net.Dial("tcp", server)
-		opts.AddBroker("tcp://"+server)
+		opts.AddBroker("tcp://" + server)
 	}
 	if err != nil {
 
@@ -204,15 +205,15 @@ func (s *edgeConnectorMQTTv3) GetTagHistory(startTS time.Time, endTS time.Time, 
 // support functions
 //
 func (s *edgeConnectorMQTTv3) SubscribeToTopic(topic string) error {
-	c:= *s.mqttClient
+	c := *s.mqttClient
 	if token := c.Subscribe(topic, 0, s.tagChangeHandler); token.Wait() && token.Error() != nil {
 		s.LogError(token.Error())
 	}
-	s.LogDebug("subscribed to "+topic)
+	s.LogDebug("subscribed to " + topic)
 	return nil
 }
 
-func (s *edgeConnectorMQTTv3) tagChangeHandler(client mqtt.Client,m mqtt.Message) {
+func (s *edgeConnectorMQTTv3) tagChangeHandler(client mqtt.Client, m mqtt.Message) {
 	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct

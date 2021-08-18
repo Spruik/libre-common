@@ -8,15 +8,23 @@ import (
 	iso8601 "github.com/senseyeio/duration"
 )
 
+// WorkCalendarEntryType is the work type of a calendar entry. Planned Busy, Planned Shutdown or Planned Downtime.
 type WorkCalendarEntryType string
 
 const (
+	// PlannedBusyTime represents that equipment should be executing/running
 	PlannedBusyTime WorkCalendarEntryType = "PlannedBusyTime"
+
+	// PlannedDowntime represents that equipment should NOT be executing/running due to planned activities
 	PlannedDowntime WorkCalendarEntryType = "PlannedDowntime"
+
+	// PlannedShutdown represents that equipment should NOT be executing/running due to being unscheduled
 	PlannedShutdown WorkCalendarEntryType = "PlannedShutdown"
 )
 
-func DominantWorkCalendarEntryType(old WorkCalendarEntryType, new WorkCalendarEntryType) (changed bool, entryType WorkCalendarEntryType) {
+// CompareWorkCalendarEntryType takes two WorkCalendarEntryType's and applieds the business logic to determinute prescedant/dominant entry type.
+// Used to determine the current WorkCalendarEntryType when multiple entries elapse a specified time and presecance is sought.
+func CompareWorkCalendarEntryType(old WorkCalendarEntryType, new WorkCalendarEntryType) (changed bool, entryType WorkCalendarEntryType) {
 	if old == new {
 		return false, new
 	}
@@ -36,8 +44,10 @@ func DominantWorkCalendarEntryType(old WorkCalendarEntryType, new WorkCalendarEn
 	return false, old
 }
 
+// Weekday is the day of the week represented by the first two characters of the day. E.g. 'MO', 'TU', etc.
 type Weekday string
 
+// AsTimeWeekday converts a local Weekday into a time library's Weekday
 func (w Weekday) AsTimeWeekday() time.Weekday {
 	switch w {
 	case Monday:
@@ -56,6 +66,7 @@ func (w Weekday) AsTimeWeekday() time.Weekday {
 	return time.Sunday // Default
 }
 
+// WeekdaySliceAsInts converts an array of Weekdays into an array of ints. Sunday = 0, Monday = 1...
 func WeekdaySliceAsInts(arr []Weekday) (result []int) {
 	for _, weekday := range arr {
 		result = append(result, int(weekday.AsTimeWeekday()))
@@ -64,29 +75,57 @@ func WeekdaySliceAsInts(arr []Weekday) (result []int) {
 }
 
 const (
-	Monday    Weekday = "MO"
-	Tuesday   Weekday = "TU"
+	// Monday GraphQL Enum Value
+	Monday Weekday = "MO"
+
+	// Tuesday GraphQL Enum Value
+	Tuesday Weekday = "TU"
+
+	// Wednesday GraphQL Enum Value
 	Wednesday Weekday = "WE"
-	Thursday  Weekday = "TH"
-	Friday    Weekday = "FR"
-	Saturday  Weekday = "SA"
-	Sunday    Weekday = "SU"
+
+	// Thursday GraphQL Enum Value
+	Thursday Weekday = "TH"
+
+	// Friday GraphQL Enum Value
+	Friday Weekday = "FR"
+
+	// Saturday GraphQL Enum Value
+	Saturday Weekday = "SA"
+
+	// Sunday GraphQL Enum Value
+	Sunday Weekday = "SU"
 )
 
+// Frequency of the WorkCalendarDefinition
 type Frequency string
 
 const (
-	Yearly   Frequency = "YEARLY"
-	Monthly  Frequency = "MONTHLY"
-	Weekly   Frequency = "WEEKLY"
-	Daily    Frequency = "DAILY"
-	Hourly   Frequency = "HOURLY"
+	// Yearly Frequency of the WorkCalendarDefinition in GraphQL
+	Yearly Frequency = "YEARLY"
+
+	// Monthly Frequency of the WorkCalendarDefinition in GraphQL
+	Monthly Frequency = "MONTHLY"
+
+	// Weekly Frequency of the WorkCalendarDefinition in GraphQL
+	Weekly Frequency = "WEEKLY"
+
+	// Daily Frequency of the WorkCalendarDefinition in GraphQL
+	Daily Frequency = "DAILY"
+
+	// Hourly Frequency of the WorkCalendarDefinition in GraphQL
+	Hourly Frequency = "HOURLY"
+
+	// Minutely Frequency of the WorkCalendarDefinition in GraphQL
 	Minutely Frequency = "MINUTELY"
+
+	// Secondly Frequency of the WorkCalendarDefinition in GraphQL
 	Secondly Frequency = "SECONDLY"
 )
 
+// WorkCalendar is a named collection of calendar entry definitions and entries that reflect the scheduled time blocks on equipment
 type WorkCalendar struct {
-	Id          string                        `json:"id,omitempty"`
+	ID          string                        `json:"id,omitempty"`
 	IsActive    bool                          `json:"isActive,omitempty"`
 	Name        string                        `json:"name,omitempty"`
 	Description string                        `json:"description,omitempty"`
@@ -95,30 +134,33 @@ type WorkCalendar struct {
 	Equipment   []Equipment                   `json:"equipment,omitempty"`
 }
 
-func (calendar *WorkCalendar) GetCurrentEntryType() (entryType WorkCalendarEntryType, err error) {
+// GetCurrentEntryType gets the current (now) WorkCalendarEntryType for a work calendar
+func (workCalendar *WorkCalendar) GetCurrentEntryType() (entryType WorkCalendarEntryType, err error) {
 	entryType = PlannedShutdown
-	entries, err := calendar.GetCurrentEntries()
+	entries, err := workCalendar.GetCurrentEntries()
 	if err != nil {
-		msg := fmt.Sprintf("work calendar: %s(%s). failed to get calendar entries due to %s", calendar.Name, calendar.Id, err)
+		msg := fmt.Sprintf("work calendar: %s(%s). failed to get calendar entries because %s", workCalendar.Name, workCalendar.ID, err)
 		return entryType, errors.New(msg)
 	}
 	for _, entry := range entries {
-		_, entryType = DominantWorkCalendarEntryType(entryType, entry.EntryType)
+		_, entryType = CompareWorkCalendarEntryType(entryType, entry.EntryType)
 	}
 	return entryType, nil
 }
 
-func (calendar *WorkCalendar) GetCurrentEntries() (entries []WorkCalendarEntry, err error) {
+// GetCurrentEntries gets the all the WorkCalendarEntries that elapse over now for the WorkCalendar
+func (workCalendar *WorkCalendar) GetCurrentEntries() (entries []WorkCalendarEntry, err error) {
 	now := time.Now()
-	return calendar.GetEntriesAtTime(now)
+	return workCalendar.GetEntriesAtTime(now)
 }
 
-func (workCalendar *WorkCalendar) GetEntriesAtTime(time time.Time) (entries []WorkCalendarEntry, err error) {
+// GetEntriesAtTime gets the all the WorkCalendarEntries that elapse over a given time for the WorkCalendar
+func (workCalendar *WorkCalendar) GetEntriesAtTime(atTime time.Time) (entries []WorkCalendarEntry, err error) {
 	defEntries := []WorkCalendarEntry{}
 
 	// Gather Entries
 	for _, definition := range workCalendar.Definition {
-		covers, err := definition.Covers(time)
+		covers, err := definition.Covers(atTime)
 		if err != nil {
 			return entries, err
 		}
@@ -133,15 +175,16 @@ func (workCalendar *WorkCalendar) GetEntriesAtTime(time time.Time) (entries []Wo
 
 	// Filter for any that cover time
 	for _, defEntry := range defEntries {
-		if defEntry.StartDateTime.Before(time) && time.Before(defEntry.EndDateTime) {
+		if atTime.Before(defEntry.EndDateTime) && (defEntry.StartDateTime.Before(atTime) || defEntry.StartDateTime.Equal(atTime)) {
 			entries = append(entries, defEntry)
 		}
 	}
 	return entries, nil
 }
 
+// WorkCalendarDefinitionEntry defintes a repeating pattern for workCalendarEntries
 type WorkCalendarDefinitionEntry struct {
-	Id          string `graphql:"id" json:"id,omitempty"`
+	ID          string `graphql:"id" json:"id,omitempty"`
 	IsActive    bool   `graphql:"isActive" json:"isActive,omitempty"`
 	Description string `graphql:"description" json:"description,omitempty"`
 	// HierarchyScope Equipment `json:"hierarchyScope,omitempty"`
@@ -162,28 +205,27 @@ type WorkCalendarDefinitionEntry struct {
 	ByYearDay     []int                 `json:"byYearDay,omitempty"`
 	Duration      string                `json:"duration,omitempty"`
 	EntryType     WorkCalendarEntryType `graphql:"entryType" json:"entryType,omitempty"`
-	// CalendarEntries []WorkCalendarEntry `json:"calendarEntries,omitempty"`	// Ignoring for now T.H. 2021-08-12
-	// WorkCalendar    *WorkCalendar       `json:"workCalendar,omitempty"`		// Ignoring for now T.H. 2021-08-12
-	//properties:[Property] 													// Ignoring for now T.H. 2021-08-12
 }
 
-func (definition *WorkCalendarDefinitionEntry) Covers(time time.Time) (bool, error) {
-	if !definition.IsActive {
+// Covers checks if the given time is occurs within the scope of this WorkCalendarDefinitionEntry
+func (def *WorkCalendarDefinitionEntry) Covers(time time.Time) (bool, error) {
+	if !def.IsActive {
 		return false, nil
 	}
 
-	if time.Before(definition.StartDateTime) {
+	if time.Before(def.StartDateTime) {
 		return false, nil
 	}
 
-	if definition.Count > 0 {
+	if def.Count > 0 {
 		return true, nil
 	}
 
-	definitionEnd, err := definition.GetEndDateTime()
+	definitionEnd, err := def.GetEndDateTime()
 	return time.Before(definitionEnd), err
 }
 
+// GetEndDateTime returns/calulates the end date time of the WorkCalendarDefinitionEntry
 func (def *WorkCalendarDefinitionEntry) GetEndDateTime() (time.Time, error) {
 	if def.EndDateTime.IsZero() {
 		return def.EndDateTime, errors.New("EndDateTime is zero")
@@ -191,6 +233,7 @@ func (def *WorkCalendarDefinitionEntry) GetEndDateTime() (time.Time, error) {
 	return def.EndDateTime, nil
 }
 
+// GenerateEntries reads all the WorkCalendarDefinitions and creates the corresponding WorkCalendarEntries
 func (def *WorkCalendarDefinitionEntry) GenerateEntries() ([]WorkCalendarEntry, error) {
 	// Not Active No Entries
 	if !def.IsActive {
@@ -230,7 +273,7 @@ type timeFilter struct {
 	allYearDays  bool
 }
 
-func (timeFilter *timeFilter) Compare(time time.Time) bool {
+func (timeFilter *timeFilter) compare(time time.Time) bool {
 	if !timeFilter.allSecond && !intExists(timeFilter.def.BySecond, time.Second()) {
 		return false
 	}
@@ -294,17 +337,26 @@ func (def *WorkCalendarDefinitionEntry) getDailyEntries() (entries []WorkCalenda
 
 	start := def.StartDateTime
 
+	sanityCheck := 10000 // Max out entries at this level
+
 	if def.Count > 0 {
 		counter := def.Count
-		for counter > 0 {
+		for counter > 0 && sanityCheck > 0 {
+			sanityCheck--
+
+			if !def.EndDateTime.IsZero() && def.EndDateTime.Before(start) {
+				break
+			}
+
 			// Check Time Filter
-			if !tf.Compare(start) {
+			if !tf.compare(start) {
 				start = start.AddDate(0, 0, 1)
 				continue
 			}
 
 			entry := WorkCalendarEntry{
-				Id:            "",
+				ID:            "",
+				IsActive:      true,
 				Description:   def.Description,
 				StartDateTime: start,
 				EndDateTime:   dur.Shift(start),
@@ -314,6 +366,10 @@ func (def *WorkCalendarDefinitionEntry) getDailyEntries() (entries []WorkCalenda
 			counter--
 			start = start.AddDate(0, 0, 1)
 		}
+	}
+
+	if sanityCheck < 0 {
+		err = errors.New("suspect WorkCalendarDefintion configuration error, walked over 10000 times trying to find next WorkCalendarEntry")
 	}
 
 	return entries, err
@@ -351,7 +407,6 @@ func (def *WorkCalendarDefinitionEntry) getWeeklyEntries() (entries []WorkCalend
 	weeklyEndTime := outerTime.AddDate(0, 0, 7)
 
 	for weeklyEndTime.Before(def.EndDateTime) && (def.Count == 0 || count < def.Count) {
-		fmt.Printf("\t\tEvaluating Week %s to %s\n", outerTime.Format(time.RFC3339), weeklyEndTime.Format(time.RFC3339))
 		for _, day := range def.ByWeekDay {
 
 			// This day is technically in the following week
@@ -362,14 +417,13 @@ func (def *WorkCalendarDefinitionEntry) getWeeklyEntries() (entries []WorkCalend
 			startDateTime := outerTime.AddDate(0, 0, days)
 			startDateTime = time.Date(startDateTime.Year(), startDateTime.Month(), startDateTime.Day(), hour, minute, second, 0, time.UTC)
 			entry := WorkCalendarEntry{
-				Id:            "",
+				ID:            "",
 				IsActive:      true,
 				Description:   def.Description,
 				StartDateTime: startDateTime,
 				EndDateTime:   dur.Shift(startDateTime),
 				EntryType:     def.EntryType,
 			}
-			fmt.Printf("Adding Entry: %v\n", entry)
 			entries = append(entries, entry)
 			count++
 		}
@@ -380,15 +434,12 @@ func (def *WorkCalendarDefinitionEntry) getWeeklyEntries() (entries []WorkCalend
 	return entries, nil
 }
 
+// WorkCalendarEntry is a block of time with start/end, label and WorkCalendarEntryType
 type WorkCalendarEntry struct {
-	Id          string `json:"id,omitempty"`
-	IsActive    bool   `json:"isActive,omitempty"`
-	Description string `json:"description,omitempty"`
-	// HierarchyScope Equipment                    `json:"hierarchyScope,omitempty"`
-	// Definition    *WorkCalendarDefinitionEntry `json:"definition,omitempty"`
+	ID            string    `json:"id,omitempty"`
+	IsActive      bool      `json:"isActive,omitempty"`
+	Description   string    `json:"description,omitempty"`
 	StartDateTime time.Time `json:"startDateTime,omitempty"`
 	EndDateTime   time.Time `json:"endDateTime,omitempty"`
 	EntryType     WorkCalendarEntryType
-	//properties:[Property] // Ignoring for now T.H. 2021-08-12
-	// WorkCalendar *WorkCalendar `json:"workCalendar,omitempty"`
 }

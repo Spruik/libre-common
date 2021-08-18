@@ -34,7 +34,7 @@ type StdMessageStruct struct {
 	ChangedTime   time.Time
 	OldChangedTime   time.Time
 	Category      string
-	Topic		  string
+	Topic         string
 	ReplyTopic    string
 }
 
