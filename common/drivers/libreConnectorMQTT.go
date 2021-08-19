@@ -5,14 +5,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
 
 type libreConnectorMQTT struct {
@@ -203,10 +204,14 @@ func (s *libreConnectorMQTT) subscribeToTopic(topic string) {
 
 func (s *libreConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
 	jsonBytes, err := json.Marshal(message)
+	retain := false
+	if message.Category == "TAGDATA" {
+		retain = true
+	}
 	if err == nil {
 		pubStruct := &mqtt.Publish{
 			QoS:        0,
-			Retain:     false,
+			Retain:     retain,
 			Topic:      topic,
 			Properties: nil,
 			Payload:    jsonBytes,
