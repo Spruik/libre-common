@@ -198,7 +198,8 @@ func GetAliasPropertyNameForSystem(txn ports.LibreDataStoreTransactionPort, syst
 						Name string `json:"name"`
 					} `graphql:"property(filter:{id:[$propId]})"`
 					Equipment struct {
-						Name string
+						ID   string `json:"id"`
+						Name string `json:"name"`
 					} `graphql:"equipment(filter:{name: {eq: $eqName}})"`
 					Alias  string
 					System string

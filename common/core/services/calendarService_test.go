@@ -13,14 +13,7 @@ import (
 
 var stdMessageChan chan domain.StdMessageStruct
 
-func mustMakeTime(str string) time.Time {
-	t, _ := time.Parse(time.RFC3339, str)
-	return t
-}
-
 type FakeLibreConnector struct {
-	msgs      []domain.StdMessageStruct
-	lastMsg   domain.StdMessageStruct
 	nextError bool
 }
 
@@ -37,14 +30,12 @@ func (libreConnector FakeLibreConnector) SendStdMessage(msg domain.StdMessageStr
 	go func() { stdMessageChan <- msg }()
 
 	if libreConnector.nextError {
-		libreConnector.nextError = false
 		return errors.New("Some Error")
 	}
 	return nil
 }
 
 func (libreConnector FakeLibreConnector) SetNextError() {
-	libreConnector.nextError = true
 }
 
 func (libreConnector FakeLibreConnector) ListenForReadTagsRequest(c chan []domain.StdMessageStruct, readTagDefs []domain.StdMessageStruct) {
@@ -63,8 +54,6 @@ type FakeLibreDataStore struct {
 }
 
 func (fakeLibreDataStore FakeLibreDataStore) SetNextError(err error) {
-	fakeLibreDataStore.IsNextError = true
-	fakeLibreDataStore.Err = err
 }
 
 func (fakeLibreDataStore FakeLibreDataStore) Connect() error {
@@ -89,7 +78,6 @@ func (fakeLibreDataStore FakeLibreDataStore) GetSubscription(q interface{}, vars
 //GetAllActiveWorkCalendar returns the work calendars
 func (fakeLibreDataStore FakeLibreDataStore) GetAllActiveWorkCalendar() ([]domain.WorkCalendar, error) {
 	if fakeLibreDataStore.IsNextError {
-		fakeLibreDataStore.IsNextError = false
 		return fakeLibreDataStore.WorkCalendars, fakeLibreDataStore.Err
 	}
 	return fakeLibreDataStore.WorkCalendars, nil
@@ -98,7 +86,7 @@ func (fakeLibreDataStore FakeLibreDataStore) GetAllActiveWorkCalendar() ([]domai
 func TestCalendarService(t *testing.T) {
 	stdMessageChan = make(chan domain.StdMessageStruct)
 
-	now := time.Now()
+	now := time.Now().UTC()
 	fakeLibreConnector := FakeLibreConnector{}
 	fakeLibreDataStore := FakeLibreDataStore{
 		WorkCalendars: []domain.WorkCalendar{
@@ -284,8 +272,8 @@ func TestCalendarService(t *testing.T) {
 		ItemDataType:  "STRING",
 		TagQuality:    1,
 		Err:           nil,
-		ChangedTime:   time.Now(),
-		Category:      "WorkCalendar",
+		ChangedTime:   time.Now().UTC(),
+		Category:      "TAGDATA",
 		Topic:         fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
 	}
 
