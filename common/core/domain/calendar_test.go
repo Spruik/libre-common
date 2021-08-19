@@ -47,6 +47,7 @@ type compareWorkCalendarEntryTypeTestCase struct {
 	Changed  bool
 }
 
+// Test cases to compare two WorkCalendarEntryTypes to determine presedence
 var compareWorkCalendarEntryTypeTestCases = []compareWorkCalendarEntryTypeTestCase{
 	{
 		Name:     "Same",
@@ -121,6 +122,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar No Definitions",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - No Definitions",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -135,6 +137,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar Single Definition",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - Single Definition",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -181,6 +184,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar Single Definition query before",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - Single Definition",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -218,6 +222,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar Single Definition query after",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - Single Definition",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -255,6 +260,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar Single Definition - Time aligns at start of first calendar entry",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - Single Definition",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -301,6 +307,7 @@ var entryTestCases = []entryTestCase{
 		Name: "WorkCalendar Single Definition - Time aligns at end of first calendar entry",
 		WorkCalendar: WorkCalendar{
 			ID:          "abc123",
+			IsActive:    true,
 			Name:        "Work Calendar - Single Definition",
 			Description: "Description",
 			Entries:     []WorkCalendarEntry{},
@@ -334,6 +341,100 @@ var entryTestCases = []entryTestCase{
 		Entries: []WorkCalendarEntry{},
 		Error:   false,
 	},
+	{
+		Name: "WorkCalendar Daily with EndDateTIme",
+		WorkCalendar: WorkCalendar{
+			ID:          "abc123",
+			IsActive:    true,
+			Name:        "Work Calendar - Daily with EndDateTIme",
+			Description: "Description",
+			Entries:     []WorkCalendarEntry{},
+			Equipment:   []Equipment{},
+			Definition: []WorkCalendarDefinitionEntry{
+				{
+					ID:            "abc123",
+					IsActive:      true,
+					Description:   "Daily Shift",
+					Freq:          Daily,
+					StartDateTime: mustMakeTime("2021-01-01T08:00:00Z"),
+					EndDateTime:   mustMakeTime("2021-01-07T08:00:00Z"),
+					Count:         0,
+					Interval:      0,
+					Weekday:       Monday,
+					ByWeekDay:     []Weekday{Monday, Tuesday, Wednesday, Thursday, Friday},
+					ByMonth:       []int{},
+					BySetPos:      []int{},
+					ByMonthDay:    []int{},
+					ByWeekNo:      []int{},
+					ByHour:        []int{},
+					ByMinute:      []int{},
+					BySecond:      []int{},
+					ByYearDay:     []int{},
+					Duration:      "PT8H",
+					EntryType:     PlannedBusyTime,
+				},
+			},
+		},
+		Now: mustMakeTime("2021-01-04T12:00:00Z"),
+		Entries: []WorkCalendarEntry{
+			{
+				ID:            "abc123",
+				IsActive:      true,
+				Description:   "Daily Shift",
+				StartDateTime: mustMakeTime("2021-01-04T08:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-01-04T16:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+		},
+		Error: false,
+	},
+	{
+		Name: "WorkCalendar Daily with Count",
+		WorkCalendar: WorkCalendar{
+			ID:          "abc123",
+			IsActive:    true,
+			Name:        "Work Calendar - Daily with EndDateTIme",
+			Description: "Description",
+			Entries:     []WorkCalendarEntry{},
+			Equipment:   []Equipment{},
+			Definition: []WorkCalendarDefinitionEntry{
+				{
+					ID:            "abc123",
+					IsActive:      true,
+					Description:   "Daily Shift",
+					Freq:          Daily,
+					StartDateTime: mustMakeTime("2021-01-01T08:00:00Z"),
+					EndDateTime:   mustMakeTime("0001-01-01T00:00:00Z"),
+					Count:         20,
+					Interval:      0,
+					Weekday:       Monday,
+					ByWeekDay:     []Weekday{Monday, Tuesday, Wednesday, Thursday, Friday},
+					ByMonth:       []int{},
+					BySetPos:      []int{},
+					ByMonthDay:    []int{},
+					ByWeekNo:      []int{},
+					ByHour:        []int{},
+					ByMinute:      []int{},
+					BySecond:      []int{},
+					ByYearDay:     []int{},
+					Duration:      "PT8H",
+					EntryType:     PlannedBusyTime,
+				},
+			},
+		},
+		Now: mustMakeTime("2021-01-06T12:12:12Z"),
+		Entries: []WorkCalendarEntry{
+			{
+				ID:            "abc123",
+				IsActive:      true,
+				Description:   "Daily Shift",
+				StartDateTime: mustMakeTime("2021-01-06T08:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-01-06T16:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+		},
+		Error: false,
+	},
 }
 
 func TestWorkCalendarGetEntries(t *testing.T) {
@@ -359,7 +460,7 @@ func TestWorkCalendarGetEntries(t *testing.T) {
 		for _, expectedEntry := range tc.Entries {
 			found := false
 			for _, actualEntry := range entries {
-				if expectedEntry.Description == actualEntry.Description && expectedEntry.StartDateTime == actualEntry.StartDateTime && expectedEntry.EndDateTime == actualEntry.EndDateTime && actualEntry.EntryType == expectedEntry.EntryType {
+				if expectedEntry.Description == actualEntry.Description && expectedEntry.StartDateTime.Equal(actualEntry.StartDateTime) && expectedEntry.EndDateTime.Equal(actualEntry.EndDateTime) && actualEntry.EntryType == expectedEntry.EntryType {
 					found = true
 					break
 				}
@@ -479,7 +580,7 @@ func TestGetEntriesAtTime(t *testing.T) {
 }
 
 func TestGetCurrentEntryType(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UTC()
 	var wkd Weekday
 	switch now.Weekday() {
 	case time.Sunday:
