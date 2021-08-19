@@ -47,6 +47,7 @@ type compareWorkCalendarEntryTypeTestCase struct {
 	Changed  bool
 }
 
+// Test cases to compare two WorkCalendarEntryTypes to determine presedence
 var compareWorkCalendarEntryTypeTestCases = []compareWorkCalendarEntryTypeTestCase{
 	{
 		Name:     "Same",
@@ -359,7 +360,7 @@ func TestWorkCalendarGetEntries(t *testing.T) {
 		for _, expectedEntry := range tc.Entries {
 			found := false
 			for _, actualEntry := range entries {
-				if expectedEntry.Description == actualEntry.Description && expectedEntry.StartDateTime == actualEntry.StartDateTime && expectedEntry.EndDateTime == actualEntry.EndDateTime && actualEntry.EntryType == expectedEntry.EntryType {
+				if expectedEntry.Description == actualEntry.Description && expectedEntry.StartDateTime.Equal(actualEntry.StartDateTime) && expectedEntry.EndDateTime.Equal(actualEntry.EndDateTime) && actualEntry.EntryType == expectedEntry.EntryType {
 					found = true
 					break
 				}
@@ -479,7 +480,7 @@ func TestGetEntriesAtTime(t *testing.T) {
 }
 
 func TestGetCurrentEntryType(t *testing.T) {
-	now := time.Now()
+	now := time.Now().UTC()
 	var wkd Weekday
 	switch now.Weekday() {
 	case time.Sunday:
