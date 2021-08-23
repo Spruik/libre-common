@@ -55,7 +55,7 @@ func (s *plcConnectorOPCUA) Connect() error {
 	if err != nil {
 		panic("Failed to find ENDPOINT entry in configuration for plcConnectorOPCUA")
 	}
-	endpoints, err := opcua.GetEndpoints(endpointStr)
+	endpoints, err := opcua.GetEndpoints(context.Background(),endpointStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -141,6 +141,9 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 	}
 	go s.startChanSub(clientName, s.connectionContext, m, time.Second*1, 0, nodeNames...)
 }
+func (s *plcConnectorOPCUA) Unsubscribe(equipmentId *string,topicList []string) error{
+	return nil
+}
 
 func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]string {
 	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
@@ -220,7 +223,7 @@ func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context,
 					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
 					TagQuality:  128,
 					Err:         nil,
-					ChangedTime: msg.ServerTimestamp,
+					ChangedTimestamp: msg.ServerTimestamp,
 				}
 				s.ChangeChannels[clientName] <- tagData
 			}
