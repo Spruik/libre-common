@@ -143,7 +143,7 @@ func (s *calendarService) calculateCalendars() {
 					ItemDataType:  "STRING",
 					TagQuality:    1,
 					Err:           nil,
-					ChangedTime:   time.Now().UTC(),
+					ChangedTimestamp:   time.Now().UTC(),
 					Category:      "TAGDATA",
 					Topic:         equip.Name + "/workCalendarCategory",
 				}
