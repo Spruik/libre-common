@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -19,7 +20,10 @@ type AdminCommand struct {
 }
 
 type DateTime string
-
+type StdMessage struct {
+	Topic string
+	Payload *json.RawMessage
+}
 type StdMessageStruct struct {
 	OwningAsset   string
 	OwningAssetId string
@@ -31,8 +35,8 @@ type StdMessageStruct struct {
 	ItemDataType  string
 	TagQuality    int
 	Err           error
-	ChangedTime   time.Time
-	OldChangedTime   time.Time
+	ChangedTimestamp   time.Time
+	PreviousTimestamp   time.Time
 	Category      string
 	Topic         string
 	ReplyTopic    string
