@@ -19,4 +19,3 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	nhooyr.io/websocket v1.8.6
 )
-replace github.com/gopcua/opcua v0.2.0-rc2 => /Users/geoffreynunan/documents/github/opcua
