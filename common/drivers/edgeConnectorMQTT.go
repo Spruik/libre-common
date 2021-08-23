@@ -255,7 +255,7 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
-	s.LogDebug("BEGIN tagChangeHandler")
+//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)

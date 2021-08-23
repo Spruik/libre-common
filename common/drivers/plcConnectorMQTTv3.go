@@ -182,7 +182,10 @@ func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStru
 		go s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
-
+func (s *plcConnectorMQTTv3) Unsubscribe(equipmentId *string,topicList []string)error {
+	//ToDo: Implement Unsubscribe
+	return nil
+}
 func (s *plcConnectorMQTTv3) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	_ = startTS
 	_ = endTS

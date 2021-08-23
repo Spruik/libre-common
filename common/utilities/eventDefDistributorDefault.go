@@ -52,15 +52,15 @@ func (s *eventDefDistributorDefault) DistributeEventDef(eqId, eqName string, eve
 	jsonBytes, err := json.Marshal(&payloadData)
 	if err == nil {
 		msg := domain.StdMessageStruct{
-			OwningAsset:   eqName,
-			OwningAssetId: eqId,
-			ItemName:      fmt.Sprintf("%s", eventDef.MessageClass),
-			ItemValue:     string(jsonBytes),
-			ItemDataType:  "STRING",
-			TagQuality:    0,
-			Err:           nil,
-			Category:      "EVENT",
-			ChangedTime:   time.Now(),
+			OwningAsset:      eqName,
+			OwningAssetId:    eqId,
+			ItemName:         fmt.Sprintf("%s", eventDef.MessageClass),
+			ItemValue:        string(jsonBytes),
+			ItemDataType:     "STRING",
+			TagQuality:       0,
+			Err:              nil,
+			Category:         "EVENT",
+			ChangedTimestamp: time.Now(),
 		}
 		err = services.GetLibreConnectorServiceInstance().SendStdMessage(msg)
 	}
