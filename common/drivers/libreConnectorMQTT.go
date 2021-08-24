@@ -119,7 +119,7 @@ func (s *libreConnectorMQTT) Connect() error {
 		s.LogError("Plc", msg)
 	} else {
 		s.mqttClient = client
-		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
+		s.LogDebugf("%s Connected to %s\n", s.mqttClient.ClientID, server)
 	}
 	return err
 }
@@ -144,7 +144,7 @@ func (s *libreConnectorMQTT) Close() error {
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *libreConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	topic := s.buildTopicString(msg)
-	s.LogInfof("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
+	s.LogDebugf("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
 	s.send(topic, msg)
 	return nil
 }
@@ -220,7 +220,7 @@ func (s *libreConnectorMQTT) send(topic string, message domain.StdMessageStruct)
 		if err != nil {
 			s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
 		} else {
-			s.LogInfof("Published: %s to %s\n", message, topic)
+			s.LogInfof("Published to %s", topic)
 		}
 	} else {
 		s.LogErrorf("mqtt publish error : failed to marshal the message %+v [%s]\n", message, err)
