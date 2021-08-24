@@ -40,6 +40,9 @@ func (s *plcConnectorService) WriteTags(outTagDefs []domain.StdMessageStruct) []
 func (s *plcConnectorService) ListenForPlcTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
 	s.plcConnectorPort.ListenForPlcTagChanges(c, changeFilter)
 }
+func (s *plcConnectorService) Unsubscribe( equipmentId *string,topicList []string) error{
+	return s.plcConnectorPort.Unsubscribe(equipmentId,topicList)
+}
 func (s *plcConnectorService) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	return s.plcConnectorPort.GetTagHistory(startTS, endTS, inTagDefs)
 }

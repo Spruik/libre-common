@@ -88,13 +88,14 @@ func (s *calendarService) Start() (err error) {
 			s.LogErrorf("calendarService tick failed; got %s", err)
 			return err
 		}
+		s.LogInfo("calendar service started")
 		go func() {
 			for {
 				select {
 				case <-s.eval:
 					return
 				case t := <-s.ticker.C:
-					s.LogDebug("Tick at ", t)
+					s.LogDebugf("Tick at %s\n", t)
 					s.calculateCalendars()
 				}
 			}
@@ -112,7 +113,7 @@ func (s *calendarService) Start() (err error) {
 
 func (s *calendarService) Stop() {
 	s.ticker.Stop()
-	s.LogInfo("Calendar Service Stopped\n")
+	s.LogInfo("calendar service stopped")
 	s.eval <- true
 }
 
@@ -142,7 +143,7 @@ func (s *calendarService) calculateCalendars() {
 					ItemDataType:  "STRING",
 					TagQuality:    1,
 					Err:           nil,
-					ChangedTime:   time.Now(),
+					ChangedTimestamp:   time.Now().UTC(),
 					Category:      "TAGDATA",
 					Topic:         equip.Name + "/workCalendarCategory",
 				}

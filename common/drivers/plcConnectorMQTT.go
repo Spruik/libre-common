@@ -210,6 +210,14 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 		s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
+func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string,topicList []string)error {
+	u := mqtt.Unsubscribe{
+		Topics: topicList,
+		Properties: nil,
+	}
+	_,err := s.mqttClient.Unsubscribe(context.Background(), &u)
+	return err
+}
 
 func (s *plcConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	_ = startTS
@@ -251,12 +259,12 @@ func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
 	tokenMap := s.parseTopic(m.Topic)
 	tagStruct := domain.StdMessageStruct{
-		OwningAsset: tokenMap["EQNAME"],
-		ItemName:    tokenMap["TAGNAME"],
-		ItemValue:   string(m.Payload),
-		TagQuality:  128,
-		Err:         nil,
-		ChangedTime: time.Now(),
+		OwningAsset:      tokenMap["EQNAME"],
+		ItemName:         tokenMap["TAGNAME"],
+		ItemValue:        string(m.Payload),
+		TagQuality:       128,
+		Err:              nil,
+		ChangedTimestamp: time.Now(),
 		//Category:    tokenMap["CATEGORY"],
 
 	}

@@ -150,7 +150,7 @@ func (workCalendar *WorkCalendar) GetCurrentEntryType() (entryType WorkCalendarE
 
 // GetCurrentEntries gets the all the WorkCalendarEntries that elapse over now for the WorkCalendar
 func (workCalendar *WorkCalendar) GetCurrentEntries() (entries []WorkCalendarEntry, err error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	return workCalendar.GetEntriesAtTime(now)
 }
 
@@ -340,32 +340,9 @@ func (def *WorkCalendarDefinitionEntry) getDailyEntries() (entries []WorkCalenda
 	sanityCheck := 10000 // Max out entries at this level
 
 	if def.Count > 0 {
-		counter := def.Count
-		for counter > 0 && sanityCheck > 0 {
-			sanityCheck--
-
-			if !def.EndDateTime.IsZero() && def.EndDateTime.Before(start) {
-				break
-			}
-
-			// Check Time Filter
-			if !tf.compare(start) {
-				start = start.AddDate(0, 0, 1)
-				continue
-			}
-
-			entry := WorkCalendarEntry{
-				ID:            "",
-				IsActive:      true,
-				Description:   def.Description,
-				StartDateTime: start,
-				EndDateTime:   dur.Shift(start),
-				EntryType:     def.EntryType,
-			}
-			entries = append(entries, entry)
-			counter--
-			start = start.AddDate(0, 0, 1)
-		}
+		entries, sanityCheck = def.getDailyEntriesByCount(start, dur, tf, sanityCheck)
+	} else {
+		entries = def.getDailyEntriesByEndDateTime(start, dur, tf)
 	}
 
 	if sanityCheck < 0 {
@@ -373,6 +350,72 @@ func (def *WorkCalendarDefinitionEntry) getDailyEntries() (entries []WorkCalenda
 	}
 
 	return entries, err
+}
+
+func (def *WorkCalendarDefinitionEntry) getDailyEntriesByEndDateTime(start time.Time, dur iso8601.Duration, tf timeFilter) (entries []WorkCalendarEntry) {
+	end := dur.Shift(start)
+	for end.Before(def.EndDateTime) {
+		end = dur.Shift(start)
+		// Check Time Filter
+		if !tf.compare(start) {
+			start = start.AddDate(0, 0, 1)
+			continue
+		}
+
+		entry := WorkCalendarEntry{
+			ID:            "",
+			IsActive:      true,
+			Description:   def.Description,
+			StartDateTime: start,
+			EndDateTime:   dur.Shift(start),
+			EntryType:     def.EntryType,
+		}
+		entries = append(entries, entry)
+		start = start.AddDate(0, 0, 1)
+	}
+	if start.Before(def.EndDateTime) && tf.compare(start) {
+		entry := WorkCalendarEntry{
+			ID:            "",
+			IsActive:      true,
+			Description:   def.Description,
+			StartDateTime: start,
+			EndDateTime:   end,
+			EntryType:     def.EntryType,
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func (def *WorkCalendarDefinitionEntry) getDailyEntriesByCount(start time.Time, dur iso8601.Duration, tf timeFilter, initialSantiyCheck int) (entries []WorkCalendarEntry, sanityCheck int) {
+	sanityCheck = initialSantiyCheck
+	counter := def.Count
+	for counter > 0 && sanityCheck > 0 {
+		sanityCheck--
+
+		if !def.EndDateTime.IsZero() && def.EndDateTime.Before(start) {
+			break
+		}
+
+		// Check Time Filter
+		if !tf.compare(start) {
+			start = start.AddDate(0, 0, 1)
+			continue
+		}
+
+		entry := WorkCalendarEntry{
+			ID:            "",
+			IsActive:      true,
+			Description:   def.Description,
+			StartDateTime: start,
+			EndDateTime:   dur.Shift(start),
+			EntryType:     def.EntryType,
+		}
+		entries = append(entries, entry)
+		counter--
+		start = start.AddDate(0, 0, 1)
+	}
+	return entries, sanityCheck
 }
 
 func (def *WorkCalendarDefinitionEntry) getWeeklyEntries() (entries []WorkCalendarEntry, err error) {

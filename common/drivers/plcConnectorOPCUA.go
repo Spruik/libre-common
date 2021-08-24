@@ -13,7 +13,6 @@ import (
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	"github.com/gopcua/opcua"
-	"github.com/gopcua/opcua/monitor"
 	"github.com/gopcua/opcua/ua"
 )
 
@@ -24,15 +23,21 @@ type plcConnectorOPCUA struct {
 	libreLogger.LoggingEnabler
 
 	uaClient          *opcua.Client
+	subscription  	  *opcua.Subscription
 	connectionContext context.Context
 	ChangeChannels    map[string]chan domain.StdMessageStruct
-
 	aliasSystem string
+	nodeMap  		  map[string]uint32
+	clientHandleMap   map[uint32]string
+	monitoredItemIdMap map[string]uint32
 }
 
 func NewPlcConnectorOPCUA(configHook string) *plcConnectorOPCUA {
 	s := plcConnectorOPCUA{
 		ChangeChannels: map[string]chan domain.StdMessageStruct{},
+		nodeMap:  		  make(map[string]uint32),
+		clientHandleMap:   make(map[uint32]string),
+		monitoredItemIdMap: make(map[string]uint32),
 	}
 	s.SetConfigCategory(configHook)
 	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
@@ -50,19 +55,50 @@ func NewPlcConnectorOPCUA(configHook string) *plcConnectorOPCUA {
 //
 
 func (s *plcConnectorOPCUA) Connect() error {
+	// check the status of the connection
+	// if you cannot connect, retry until you can.
+	for {
+		if s.uaClient == nil {
+			s.connect()
+		}
+		if s.uaClient != nil {
+			switch s.uaClient.State(){
+			case 0: // Disconnected
+				s.connect()
+			case 1: // Connected
+				s.LogDebug(s.uaClient.State())
+				return nil
+			case 2:
+				s.LogDebug(s.uaClient.State())
+			case 3: // disconnected
+				s.LogDebug(s.uaClient.State())
+			case 4: // reconnecting
+				s.LogDebug(s.uaClient.State())
+			default:
+				s.LogDebug(s.uaClient.State())
+			}
+			s.LogDebug(s.uaClient.State())
+		} else {
+			s.LogDebug("Failed to connect to OPCUA, retrying in 5 seconds")
+		}
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (s *plcConnectorOPCUA) connect() error {
 	s.connectionContext = context.Background()
 	endpointStr, err := s.GetConfigItem("ENDPOINT")
 	if err != nil {
 		panic("Failed to find ENDPOINT entry in configuration for plcConnectorOPCUA")
 	}
-	endpoints, err := opcua.GetEndpoints(endpointStr)
+	endpoints, err := opcua.GetEndpoints(context.Background(),endpointStr)
 	if err != nil {
-		log.Fatal(err)
+		return(err)
 	}
 
 	endpoint := opcua.SelectEndpoint(endpoints, "None", ua.MessageSecurityModeFromString("None"))
 	if endpoint == nil {
-		panic("Failed to find suitable endpoint")
+		return nil
 	}
 
 	opts := []opcua.Option{
@@ -86,6 +122,7 @@ func (s *plcConnectorOPCUA) Connect() error {
 	} else {
 		s.LogError("OPCUA", "Failed in OPCUA connect: ", err)
 	}
+
 	return err
 }
 func (s *plcConnectorOPCUA) Close() error {
@@ -116,30 +153,55 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	s.ChangeChannels[clientName] = c
 
-	m, err := monitor.NewNodeMonitor(s.uaClient)
+
+	notifyCh := make(chan *opcua.PublishNotificationData)
+
+	sub, err := s.uaClient.Subscribe(&opcua.SubscriptionParameters{
+		Interval: time.Second,
+	}, notifyCh)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	m.SetErrorHandler(func(_ *opcua.Client, sub *monitor.Subscription, err error) {
-		log.Printf("error: sub=%d err=%s", sub.SubscriptionID(), err.Error())
-	})
-
-	//aliasMap := s.buildAliasMapForEquipment(clientName)
-	nodeNames := make([]string, 0, 0)
+	log.Printf("Created subscription with id %v", sub.SubscriptionID)
+	s.subscription=sub
 	for key, val := range changeFilter {
 		if strings.Index(key, "Topic") == 0 {
-			//var extName string = s.getAliasForPropName(fmt.Sprintf("%s", val), clientName)
-			//var extName string = aliasMap[fmt.Sprintf("%s", val)]
-			if strings.Index(fmt.Sprintf("%s", val), "ns=") == 0 {
-				//node has a good OPCUA name, so subscribe
-				nodeNames = append(nodeNames, fmt.Sprintf("%s", val))
-			} else {
+			id, err := ua.ParseNodeID(val.(string))
+			if err != nil {
 				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", key, val)
+				break
+			}
+			clientHandle,ok :=s.nodeMap[val.(string)]
+			if !ok {
+				clientHandle = uint32(len(s.nodeMap)+1)
+				s.nodeMap[val.(string)] = clientHandle
+				s.clientHandleMap[clientHandle]=val.(string)
+			}
+			var miCreateRequest *ua.MonitoredItemCreateRequest
+			miCreateRequest = valueRequest(id,clientHandle)
+
+			res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
+			if err != nil || res.Results[0].StatusCode != ua.StatusOK {
+				s.LogError(err)
+				break
+			}
+			for _,v := range res.Results{
+				s.monitoredItemIdMap[val.(string)] = v.MonitoredItemID
 			}
 		}
 	}
-	go s.startChanSub(clientName, s.connectionContext, m, time.Second*1, 0, nodeNames...)
+	go s.startSubscription(clientName,s.connectionContext,notifyCh)
+}
+func valueRequest(nodeID *ua.NodeID, handle uint32) *ua.MonitoredItemCreateRequest {
+	return opcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, handle)
+}
+func (s *plcConnectorOPCUA) Unsubscribe(equipmentId *string,topicList []string) error{
+	if s.subscription != nil{
+		for _,node:= range topicList {
+			s.subscription.Unmonitor(s.monitoredItemIdMap[node])
+		}
+	}
+	return nil
 }
 
 func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]string {
@@ -152,16 +214,6 @@ func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]
 		panic(err)
 	}
 }
-
-//func (s *plcConnectorOPCUA) getAliasForPropName(stdPropName string, eqName string) string {
-//	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
-//	defer txn.Dispose()
-//	extName, err := queries.GetAliasPropertyNameForSystem(txn, s.aliasSystem, stdPropName, eqName)
-//	if err == nil {
-//		return extName
-//	}
-//	return stdPropName
-//}
 
 func (s *plcConnectorOPCUA) getPropNameForAlias(extName string, eqName string) string {
 	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "stdCheck")
@@ -185,46 +237,39 @@ func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, in
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // local functions
 //
-func (s *plcConnectorOPCUA) startChanSub(clientName string, ctx context.Context, m *monitor.NodeMonitor, interval, lag time.Duration, nodes ...string) {
-	ch := make(chan *monitor.DataChangeMessage, 16)
-	log.Printf("Opening a channel subscription")
-	//Open a new channel, don't add the nodes just yet
-	sub, err := m.ChanSubscribe(ctx, &opcua.SubscriptionParameters{Interval: interval}, ch)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("Adding nodes to channel subscription:")
-	//Add the nodes one by one so their names appear in the log
-	for i := range nodes {
-		log.Printf("Adding node: %s", nodes[i])
-		err := sub.AddNodes(nodes[i])
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	log.Printf("%s subscribed with id=%d  (%+v)", clientName, sub.SubscriptionID(), nodes)
-
+func (s *plcConnectorOPCUA) startSubscription(clientName string,ctx context.Context,notifyCh chan *opcua.PublishNotificationData){
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-ch:
-			if msg.Error != nil {
-				log.Printf("%s[channel ] sub=%d error=%s", clientName, sub.SubscriptionID(), msg.Error)
-			} else {
-				log.Printf("-----OPCUA Tag Value Received ---------%s[channel ] sub=%d ts=%s node=%s value=%v", clientName, sub.SubscriptionID(), msg.SourceTimestamp.UTC().Format(time.RFC3339), msg.NodeID, msg.Value.Value())
-//				intName := s.getPropNameForAlias(msg.NodeID.String(), clientName)
-				tagData := domain.StdMessageStruct{
-					OwningAsset: "", //will be completed by channel listener
-					ItemName:    msg.NodeID.String(),
-					ItemValue:   fmt.Sprintf("%v", msg.Value.Value()),
-					TagQuality:  128,
-					Err:         nil,
-					ChangedTime: msg.ServerTimestamp,
-				}
-				s.ChangeChannels[clientName] <- tagData
+		case res := <-notifyCh:
+			if res.Error != nil {
+				log.Print(res.Error)
+				continue
 			}
-			time.Sleep(lag)
+
+			switch x := res.Value.(type) {
+			case *ua.DataChangeNotification:
+				for _, item := range x.MonitoredItems {
+					data := item.Value.Value.Value()
+					s.LogDebugf("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
+					tagData := domain.StdMessageStruct{
+						OwningAsset: "", //will be completed by channel listener
+						ItemName:    s.clientHandleMap[item.ClientHandle],
+						ItemValue:   fmt.Sprintf("%v", data),
+						TagQuality:  128,
+						Err:         nil,
+						ChangedTimestamp: item.Value.ServerTimestamp,
+					}
+					s.ChangeChannels[clientName] <- tagData
+				}
+
+			case *ua.EventNotificationList:
+				s.LogDebug("recieved an opcua event notification, but we don't handle these yet")
+
+			default:
+				s.LogDebugf("what's this publish result? %T", res.Value)
+			}
 		}
 	}
 }
