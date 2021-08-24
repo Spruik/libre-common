@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"strconv"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
 
 type pubSubConnectorMQTT struct {
@@ -19,9 +20,9 @@ type pubSubConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttClient     *mqtt.Client
-	singleChannel  chan *domain.StdMessage
-	config         map[string]string
+	mqttClient    *mqtt.Client
+	singleChannel chan *domain.StdMessage
+	config        map[string]string
 }
 
 func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
@@ -63,7 +64,11 @@ func (s *pubSubConnectorMQTT) Connect() error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for pubSubConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
@@ -128,9 +133,10 @@ func (s *pubSubConnectorMQTT) Close() error {
 	s.LogInfo("Edge Connection Closed\n")
 	return err
 }
+
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
-	s.LogDebug("Start publishing message to topic "+topic)
+	s.LogDebug("Start publishing message to topic " + topic)
 	pubStruct := &mqtt.Publish{
 		QoS:        0,
 		Retain:     retain,
@@ -145,7 +151,7 @@ func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qo
 	return nil
 
 }
-func(s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string){
+func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string) {
 	s.LogDebugf("BEGIN Subscribe")
 	// the topic always starts with Libre.<EVENT_TYPE>.<ENTITY>
 	// where EVENT_TYPE is event, command or subscription
@@ -154,11 +160,11 @@ func(s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[s
 	s.singleChannel = c
 	//declare the handler for received messages
 	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
-	for _,val := range topicMap{
+	for _, val := range topicMap {
 		err := s.SubscribeToTopic(val)
-		if err == nil{
-			s.LogInfof("Subscribed to topic %s",val)
-		}else{
+		if err == nil {
+			s.LogInfof("Subscribed to topic %s", val)
+		} else {
 			panic(err)
 		}
 	}
@@ -197,7 +203,7 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
 
 	message := domain.StdMessage{
-		Topic: m.Topic,
+		Topic:   m.Topic,
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
 	s.singleChannel <- &message
