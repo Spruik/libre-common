@@ -5,15 +5,16 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
 
 type edgeConnectorMQTT struct {
@@ -85,7 +86,11 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for edgeConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}

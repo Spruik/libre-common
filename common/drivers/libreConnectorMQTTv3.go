@@ -3,13 +3,14 @@ package drivers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type libreConnectorMQTTv3 struct {
@@ -77,6 +78,11 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
+
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
 		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {

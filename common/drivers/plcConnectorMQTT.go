@@ -4,16 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
@@ -91,7 +92,11 @@ func (s *plcConnectorMQTT) Connect() error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}

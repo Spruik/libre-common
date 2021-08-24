@@ -4,12 +4,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"log"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"io/ioutil"
-	"log"
+
 	//"os"
 
 	//"net"
@@ -98,6 +100,11 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
+
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
 		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {

@@ -75,7 +75,11 @@ func (s *libreConnectorMQTT) Connect() error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for libreConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
