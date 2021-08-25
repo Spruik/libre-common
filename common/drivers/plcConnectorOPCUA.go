@@ -169,7 +169,7 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 			id, err := ua.ParseNodeID(val.(string))
 			if err != nil {
 				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", key, val)
-				break
+				continue
 			}
 			clientHandle,ok :=s.nodeMap[val.(string)]
 			if !ok {
@@ -182,8 +182,8 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 
 			res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
 			if err != nil || res.Results[0].StatusCode != ua.StatusOK {
-				s.LogError(err)
-				break
+				s.LogErrorf("failed to subscribe to node %s : %s",val.(string),err)
+				continue
 			}
 			for _,v := range res.Results{
 				s.monitoredItemIdMap[val.(string)] = v.MonitoredItemID
