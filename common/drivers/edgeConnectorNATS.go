@@ -106,13 +106,13 @@ func (s *edgeConnectorNATS) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	for _, val := range changeFilter {

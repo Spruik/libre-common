@@ -161,13 +161,13 @@ func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageSt
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)

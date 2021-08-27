@@ -184,13 +184,13 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
@@ -260,7 +260,7 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
-//	s.LogDebug("BEGIN tagChangeHandler")
+	//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)

@@ -3,13 +3,16 @@ package drivers
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/drivers/gql"
 	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
+
 	//"github.com/nats-io/nats.go"
 	"log"
 	"regexp"
+
 	//"strings"
 	"time"
 )
@@ -100,13 +103,13 @@ func (s *edgeConnectorGraphQL) ListenForEdgeTagChanges(c chan domain.StdMessageS
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	for _, val := range changeFilter {

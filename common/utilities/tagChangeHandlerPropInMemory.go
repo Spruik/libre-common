@@ -2,9 +2,10 @@ package utilities
 
 import (
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type tagChangeHandlerPropInMemory struct {
@@ -40,7 +41,7 @@ func (s *tagChangeHandlerPropInMemory) HandleTagChange(tagData domain.StdMessage
 
 func (s *tagChangeHandlerPropInMemory) GetAckMessage(err error) string {
 	if err == nil {
-		return fmt.Sprintf("\nTag change handled by updating matching equipment property.")
+		return "\nTag change handled by updating matching equipment property."
 	} else {
 		return fmt.Sprintf("\nFailed equipment property update while handing tag change with error [%s]", err)
 	}

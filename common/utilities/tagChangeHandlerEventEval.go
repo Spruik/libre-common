@@ -3,12 +3,13 @@ package utilities
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
 	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"time"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type tagChangeHandlerEventEval struct {
@@ -116,7 +117,7 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 
 func (s *tagChangeHandlerEventEval) GetAckMessage(err error) string {
 	if err == nil {
-		return fmt.Sprintf("\nTag change handled by evaluating Event Definitions.")
+		return "\nTag change handled by evaluating Event Definitions."
 	} else {
 		return fmt.Sprintf("\nFailed event evaluation while handing tag change with [%s]", err)
 	}

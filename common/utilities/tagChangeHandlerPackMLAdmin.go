@@ -2,9 +2,10 @@ package utilities
 
 import (
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type tagChangeHandlerPackMLAdmin struct {
@@ -41,7 +42,7 @@ func (s *tagChangeHandlerPackMLAdmin) HandleTagChange(tagData domain.StdMessageS
 
 func (s *tagChangeHandlerPackMLAdmin) GetAckMessage(err error) string {
 	if err == nil {
-		return fmt.Sprintf("\nTag change handled by as a PackML status message.")
+		return "\nTag change handled by as a PackML status message."
 	} else {
 		return fmt.Sprintf("\nFailed PackML status message processing while handling tag change with error [%s]", err)
 	}
