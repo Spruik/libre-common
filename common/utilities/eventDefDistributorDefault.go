@@ -2,12 +2,12 @@ package utilities
 
 import (
 	"encoding/json"
-	"fmt"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/services"
 	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"time"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type eventDefDistributorDefault struct {
@@ -54,7 +54,7 @@ func (s *eventDefDistributorDefault) DistributeEventDef(eqId, eqName string, eve
 		msg := domain.StdMessageStruct{
 			OwningAsset:      eqName,
 			OwningAssetId:    eqId,
-			ItemName:         fmt.Sprintf("%s", eventDef.MessageClass),
+			ItemName:         string(eventDef.MessageClass),
 			ItemValue:        string(jsonBytes),
 			ItemDataType:     "STRING",
 			TagQuality:       0,
