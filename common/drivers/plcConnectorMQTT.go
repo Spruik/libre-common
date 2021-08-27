@@ -94,8 +94,16 @@ func (s *plcConnectorMQTT) Connect() error {
 	if useTls {
 		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
 			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		} else {
 			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		}
 	} else {
 		conn, err = net.Dial("tcp", server)
@@ -210,12 +218,12 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 		s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
-func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string,topicList []string)error {
+func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string, topicList []string) error {
 	u := mqtt.Unsubscribe{
-		Topics: topicList,
+		Topics:     topicList,
 		Properties: nil,
 	}
-	_,err := s.mqttClient.Unsubscribe(context.Background(), &u)
+	_, err := s.mqttClient.Unsubscribe(context.Background(), &u)
 	return err
 }
 

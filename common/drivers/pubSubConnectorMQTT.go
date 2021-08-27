@@ -66,8 +66,16 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if useTls {
 		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
 			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		} else {
 			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		}
 	} else {
 		conn, err = net.Dial("tcp", server)
