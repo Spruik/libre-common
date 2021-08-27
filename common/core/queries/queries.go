@@ -273,9 +273,7 @@ func GetAllEventDefsForEquipmentAndClass(txn ports.LibreDataStoreTransactionPort
 		for currEqcParentId != "" {
 			eqcInst, err = GetEquipmentClassById(txn, currEqcParentId)
 			if err == nil {
-				for _, e := range eqcInst.EventDefinitions {
-					fullEventDefList = append(fullEventDefList, e)
-				}
+				fullEventDefList = append(fullEventDefList, eqcInst.EventDefinitions...)
 				eqcInst, err = GetEquipmentClassById(txn, currEqcParentId)
 				if err == nil {
 					currEqcParentId = eqcInst.Parent.Id

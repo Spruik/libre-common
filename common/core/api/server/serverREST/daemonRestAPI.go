@@ -103,9 +103,9 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 		DaemonName: s.monitoredDaemon.GetName(),
 		Endpoints:  make([]string, 0, 0),
 	}
-	for _, ep := range s.endpoints {
-		resp.Endpoints = append(resp.Endpoints, ep)
-	}
+
+	resp.Endpoints = append(resp.Endpoints, s.endpoints...)
+
 	respBytes, err := json.MarshalIndent(&resp, "", "   ")
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
