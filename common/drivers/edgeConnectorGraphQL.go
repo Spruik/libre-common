@@ -137,7 +137,7 @@ func (s *edgeConnectorGraphQL) subscribe(sub *domain.DataSubscription) error {
 		if err != nil {
 			return err
 		}
-		j, err := json.Marshal(data)
+		j, _ := json.Marshal(data)
 		s.LogDebug("Received msg : " + string(j))
 		msg := domain.StdMessageStruct{
 			OwningAsset:   sub.Topic,

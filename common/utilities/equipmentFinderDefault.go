@@ -2,13 +2,15 @@ package utilities
 
 import (
 	"encoding/json"
+	"strings"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
 	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"strings"
-	"time"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type equipmentFinderDefault struct {
@@ -43,7 +45,7 @@ func (s *equipmentFinderDefault) FindEquipment() ([]domain.Equipment, error) {
 	txn := s.dataStore.BeginTransaction(false, "findeq")
 	defer txn.Dispose()
 
-	eqElLevels, includeIds, excludeIds, err := s.getQueryInput(txn)
+	eqElLevels, includeIds, excludeIds, _ := s.getQueryInput(txn)
 
 	eqs, err := queries.GetActiveEquipmentByLevelListWithIncExc(txn, eqElLevels, includeIds, excludeIds)
 	return eqs, err
