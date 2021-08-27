@@ -1,13 +1,15 @@
 package utilities
 
 import (
+	"sync"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
 	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"sync"
-	"time"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type managedEquipmentDefault struct {
@@ -16,7 +18,7 @@ type managedEquipmentDefault struct {
 
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
-	mu sync.Mutex
+	mu             sync.Mutex
 	EquipInst      domain.Equipment
 	ConfigLevel    int
 	RequestChannel chan domain.EquipmentServiceRequest
@@ -30,7 +32,7 @@ func NewManagedEquipmentDefault(configHook string, eqInst domain.Equipment, data
 		ConfigLevel:    0,
 		RequestChannel: make(chan domain.EquipmentServiceRequest),
 		props:          map[string]domain.EquipmentPropertyDescriptor{},
-		events:         make([]domain.EquipmentEventDescriptor, 0, 0),
+		events:         make([]domain.EquipmentEventDescriptor, 0),
 	}
 	s.SetConfigCategory(configHook)
 	loggerHook, cerr := s.GetConfigItemWithDefault(domain.LOGGER_CONFIG_HOOK_TOKEN, domain.DEFAULT_LOGGER_NAME)
