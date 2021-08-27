@@ -60,7 +60,7 @@ func (s *eventDefEvaluatorDefault) EvaluateEventDef(mgdEq *ports.ManagedEquipmen
 		// might get updated in the PLC at the same time, we might use Order Number in the trigger and material number in the payload, we want to
 		// make sure that we have cached the updated material number before we build the payload.
 		delay, _ := s.GetConfigItem("EventPayloadDelayMilliseconds")
-		delayDuration,_:= time.ParseDuration(delay)
+		delayDuration, _ := time.ParseDuration(delay)
 		time.Sleep(delayDuration)
 		for key, val := range (*mgdEq).GetPropertyMap() {
 			vals[key] = val.Value

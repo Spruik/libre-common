@@ -33,7 +33,7 @@ type PlcConnectorPort interface {
 	// provide the tag data to the caller via the channel.  Changes are identified using the changeFiler in an
 	// implementation-specific way
 	ListenForPlcTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{})
-	Unsubscribe(equipmentId *string,topicList []string) error
+	Unsubscribe(equipmentId *string, topicList []string) error
 	//GetTagHistory requests all of the changes to the given tags during the specified time range
 	GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct
 }

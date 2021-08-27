@@ -21,25 +21,25 @@ type AdminCommand struct {
 
 type DateTime string
 type StdMessage struct {
-	Topic string
+	Topic   string
 	Payload *json.RawMessage
 }
 type StdMessageStruct struct {
-	OwningAsset   string
-	OwningAssetId string
-	ItemName      string
-	ItemNameExt   map[string]string
-	ItemId        string
-	ItemValue     string
-	ItemOldValue  string
-	ItemDataType  string
-	TagQuality    int
-	Err           error
-	ChangedTimestamp   time.Time
-	PreviousTimestamp   time.Time
-	Category      string
-	Topic         string
-	ReplyTopic    string
+	OwningAsset       string
+	OwningAssetId     string
+	ItemName          string
+	ItemNameExt       map[string]string
+	ItemId            string
+	ItemValue         string
+	ItemOldValue      string
+	ItemDataType      string
+	TagQuality        int
+	Err               error
+	ChangedTimestamp  time.Time
+	PreviousTimestamp time.Time
+	Category          string
+	Topic             string
+	ReplyTopic        string
 }
 
 type EquipmentPropertyDescriptor struct {
