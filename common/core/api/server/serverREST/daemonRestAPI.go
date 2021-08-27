@@ -147,7 +147,7 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 	}
 	var targetCommand ports.DaemonCommandIF = nil
 	for cmd := range s.monitoredDaemon.GetCommands() {
-		if strings.ToUpper(cmd.GetCommandName()) == strings.ToUpper(cmdName) {
+		if strings.EqualFold(cmd.GetCommandName(), cmdName) {
 			targetCommand = cmd
 			break
 		}
