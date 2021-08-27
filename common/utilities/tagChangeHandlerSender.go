@@ -2,10 +2,11 @@ package utilities
 
 import (
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/services"
-	"github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type tagChangeHandlerSender struct {
@@ -34,7 +35,7 @@ func (s *tagChangeHandlerSender) HandleTagChange(tagData domain.StdMessageStruct
 
 func (s *tagChangeHandlerSender) GetAckMessage(err error) string {
 	if err == nil {
-		return fmt.Sprintf("\nTag change handled by sending tag data to the center.")
+		return "\nTag change handled by sending tag data to the center."
 	} else {
 		return fmt.Sprintf("\nFailed to send tag change while handing tag change with error [%s]", err)
 	}

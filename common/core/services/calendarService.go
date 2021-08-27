@@ -96,6 +96,10 @@ func (s *calendarService) Start() (err error) {
 					return
 				case t := <-s.ticker.C:
 					s.LogDebugf("Tick at %s\n", t)
+					s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
+					if err != nil {
+						s.LogErrorf("calendarService failed to get all active work calendars; got %s", err)
+					}
 					s.calculateCalendars()
 				}
 			}
@@ -134,18 +138,18 @@ func (s *calendarService) calculateCalendars() {
 				s.LogDebugf("\tequipment: %s(%s): is currently %s\n", equip.Name, equip.Id, calendarEntryType)
 
 				msg := domain.StdMessageStruct{
-					OwningAsset:   equip.Name,
-					OwningAssetId: equip.Id,
-					ItemName:      "workCalendarCategory",
-					ItemNameExt:   map[string]string{},
-					ItemId:        "",
-					ItemValue:     string(calendarEntryType),
-					ItemDataType:  "STRING",
-					TagQuality:    1,
-					Err:           nil,
-					ChangedTimestamp:   time.Now().UTC(),
-					Category:      "TAGDATA",
-					Topic:         equip.Name + "/workCalendarCategory",
+					OwningAsset:      equip.Name,
+					OwningAssetId:    equip.Id,
+					ItemName:         "workCalendarCategory",
+					ItemNameExt:      map[string]string{},
+					ItemId:           "",
+					ItemValue:        string(calendarEntryType),
+					ItemDataType:     "STRING",
+					TagQuality:       1,
+					Err:              nil,
+					ChangedTimestamp: time.Now().UTC(),
+					Category:         "TAGDATA",
+					Topic:            equip.Name + "/workCalendarCategory",
 				}
 
 				if lastState := s.cache[equip.Id]; lastState != calendarEntryType {

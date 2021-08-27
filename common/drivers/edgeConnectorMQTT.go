@@ -88,15 +88,22 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 	if useTls {
 		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
 			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		} else {
 			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				return err
+			}
 		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
-
 		s.LogErrorf("Failed to connect to %s: %s", server, err)
 		return err
 	}
@@ -184,13 +191,13 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
@@ -260,7 +267,7 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
-//	s.LogDebug("BEGIN tagChangeHandler")
+	//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)

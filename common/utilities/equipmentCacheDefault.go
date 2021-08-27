@@ -2,14 +2,15 @@ package utilities
 
 import (
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
 	"github.com/Spruik/libre-common/common/core/services"
-	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"strconv"
-	"time"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type equipmentCacheDefault struct {
@@ -74,8 +75,8 @@ func (s *equipmentCacheDefault) RefreshCache() {
 				s.idCache[eq.Id] = &newEntry
 				if s.equipmentChangeFxn != nil {
 					s.equipmentChangeFxn(ports.EquipmentCacheChangeNotice{
-						"ADD",
-						eq.Id,
+						ChangeType: "ADD",
+						EqId:       eq.Id,
 					})
 				}
 			} else {
@@ -91,8 +92,8 @@ func (s *equipmentCacheDefault) RefreshCache() {
 				delete(s.idCache, id)
 				if s.equipmentChangeFxn != nil {
 					s.equipmentChangeFxn(ports.EquipmentCacheChangeNotice{
-						"REMOVE",
-						id,
+						ChangeType: "REMOVE",
+						EqId:       id,
 					})
 				}
 			}

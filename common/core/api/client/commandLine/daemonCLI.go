@@ -54,7 +54,7 @@ func (s *DaemonCLI) Init() {
 		DaemonName string
 		Endpoints  []string
 	}{}
-	err = json.NewDecoder(resp.Body).Decode(&eps)
+	_ = json.NewDecoder(resp.Body).Decode(&eps)
 
 }
 
