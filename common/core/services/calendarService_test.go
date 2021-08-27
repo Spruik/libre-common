@@ -272,7 +272,7 @@ func TestCalendarService(t *testing.T) {
 		ItemDataType:  "STRING",
 		TagQuality:    1,
 		Err:           nil,
-		ChangedTime:   time.Now().UTC(),
+		ChangedTimestamp:   time.Now().UTC(),
 		Category:      "TAGDATA",
 		Topic:         fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
 	}

@@ -34,7 +34,7 @@ type StdMessageStruct struct {
 	ItemOldValue  string
 	ItemDataType  string
 	TagQuality    int
-	Err           error
+	Err           *string
 	ChangedTimestamp   time.Time
 	PreviousTimestamp   time.Time
 	Category      string
