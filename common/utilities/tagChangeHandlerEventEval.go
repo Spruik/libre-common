@@ -1,7 +1,6 @@
 package utilities
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -109,7 +108,7 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 			}
 
 		} else {
-			err = errors.New(fmt.Sprintf("Property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset))
+			err = fmt.Errorf("Property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset)
 		}
 	}
 	return err
