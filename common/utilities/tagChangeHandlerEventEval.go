@@ -108,7 +108,7 @@ func (s *tagChangeHandlerEventEval) HandleTagChange(tagData domain.StdMessageStr
 			}
 
 		} else {
-			err = fmt.Errorf("Property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset)
+			err = fmt.Errorf("property %s is not defined for equipment %s", tagData.ItemName, tagData.OwningAsset)
 		}
 	}
 	return err
