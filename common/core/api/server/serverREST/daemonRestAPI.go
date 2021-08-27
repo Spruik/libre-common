@@ -110,7 +110,7 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
 	} else {
-		_, _ = fmt.Fprintln(w, fmt.Sprintf("%s", err))
+		_, _ = fmt.Fprintf(w, "%s\n", err)
 	}
 }
 
@@ -132,7 +132,7 @@ func (s *DaemonRESTServer) controlLink(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
 	} else {
-		_, _ = fmt.Fprintln(w, fmt.Sprintf("%s", err))
+		_, _ = fmt.Fprintf(w, "%s\n", err)
 	}
 }
 
@@ -176,7 +176,7 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 					_, _ = fmt.Fprintln(w, "Command completed successfully with no return data")
 				}
 			} else {
-				_, _ = fmt.Fprintln(w, fmt.Sprintf("Error executing command:%+v", err))
+				_, _ = fmt.Fprintf(w, "Error executing command:%+v\n", err)
 			}
 		}
 	}
