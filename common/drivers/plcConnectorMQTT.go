@@ -36,8 +36,8 @@ func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
 	s := plcConnectorMQTT{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
-		topicTemplateList:    make([]string, 0, 0),
-		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
+		topicTemplateList:    make([]string, 0),
+		topicParseRegExpList: make([]*regexp.Regexp, 0),
 		listenMutex:          sync.Mutex{},
 	}
 	s.SetConfigCategory(configHook)

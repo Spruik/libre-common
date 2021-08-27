@@ -32,7 +32,7 @@ type DaemonRESTServer struct {
 func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s := DaemonRESTServer{
 		monitoredDaemon: daemon,
-		endpoints:       make([]string, 0, 0),
+		endpoints:       make([]string, 0),
 	}
 	s.SetLoggerConfigHook("RESTAPI")
 	s.SetConfigCategory("RESTAPI")
@@ -101,7 +101,7 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 		Endpoints  []string
 	}{
 		DaemonName: s.monitoredDaemon.GetName(),
-		Endpoints:  make([]string, 0, 0),
+		Endpoints:  make([]string, 0),
 	}
 
 	resp.Endpoints = append(resp.Endpoints, s.endpoints...)
@@ -121,7 +121,7 @@ func (s *DaemonRESTServer) controlLink(w http.ResponseWriter, r *http.Request) {
 		Endpoints  []string
 	}{
 		DaemonName: s.monitoredDaemon.GetName(),
-		Endpoints:  make([]string, 0, 0),
+		Endpoints:  make([]string, 0),
 	}
 	for _, ep := range s.endpoints {
 		if strings.Contains(ep, "/control/") {

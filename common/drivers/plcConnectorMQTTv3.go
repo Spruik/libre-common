@@ -41,8 +41,8 @@ func NewPlcConnectorMQTTv3(configCategoryName string) *plcConnectorMQTTv3 {
 	s := plcConnectorMQTTv3{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
-		topicTemplateList:    make([]string, 0, 0),
-		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
+		topicTemplateList:    make([]string, 0),
+		topicParseRegExpList: make([]*regexp.Regexp, 0),
 		listenMutex:          sync.Mutex{},
 	}
 	s.SetConfigCategory(configCategoryName)
@@ -189,7 +189,7 @@ func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStru
 		go s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
-func (s *plcConnectorMQTTv3) Unsubscribe(equipmentId *string,topicList []string)error {
+func (s *plcConnectorMQTTv3) Unsubscribe(equipmentId *string, topicList []string) error {
 	//ToDo: Implement Unsubscribe
 	return nil
 }

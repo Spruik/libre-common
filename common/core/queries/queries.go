@@ -295,7 +295,7 @@ func GetEquipmentElementLevels(txn ports.LibreDataStoreTransactionPort, eventDef
 		} `graphql:"__type(name:\"EquipmentElementLevel\")" json:"__type"`
 	}
 	err := txn.ExecuteQuery(&q, nil)
-	ret := make([]string, 0, 0)
+	ret := make([]string, 0)
 	for _, j := range q.Levels.EnumValues {
 		ret = append(ret, j.Name)
 	}
