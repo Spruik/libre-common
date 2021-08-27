@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-common/common/version"
-	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/Spruik/libre-common/common/core/ports"
+	"github.com/Spruik/libre-common/common/version"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	"github.com/gorilla/mux"
 )
 
 type DaemonRESTServer struct {
@@ -61,7 +62,7 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s.endpoints = append(s.endpoints, ep)
 
 	// entry point for each implemented command
-	for cmd, _ := range s.monitoredDaemon.GetCommands() {
+	for cmd := range s.monitoredDaemon.GetCommands() {
 		ep = fmt.Sprintf("/%s/control/%s", s.monitoredDaemon.GetName(), cmd.GetCommandName())
 		if cmd.GetInputParamNames() != nil {
 			for _, p := range cmd.GetInputParamNames() {
@@ -145,7 +146,7 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 		cmdName = tokens[0]
 	}
 	var targetCommand ports.DaemonCommandIF = nil
-	for cmd, _ := range s.monitoredDaemon.GetCommands() {
+	for cmd := range s.monitoredDaemon.GetCommands() {
 		if strings.ToUpper(cmd.GetCommandName()) == strings.ToUpper(cmdName) {
 			targetCommand = cmd
 			break
