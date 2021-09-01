@@ -137,9 +137,6 @@ func (s *calendarService) calculateCalendars() {
 			}
 
 			calendarEntries := strings.Join(names, ", ")
-			if len(calendarEntries) > 2 {
-				calendarEntries = calendarEntries[:len(calendarEntries)-2]
-			}
 
 			// Inform Libre
 			for _, equip := range workCalendar.Equipment {
