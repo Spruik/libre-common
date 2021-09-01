@@ -84,7 +84,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	}
 	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("plcConnectorMQTTv3 failed to find configuration data for MQTT connection")
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -113,7 +113,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Plc", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)

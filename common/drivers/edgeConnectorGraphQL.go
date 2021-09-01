@@ -65,7 +65,10 @@ func (s *edgeConnectorGraphQL) Connect(connInfo map[string]interface{}) error {
 			return err
 		})
 	//defer s.gqlClient.Close()
-	go s.gqlClient.Run()
+	go func() {
+		err := s.gqlClient.Run()
+		s.LogError(err)
+	}()
 	s.LogInfof("GraphQL Data Store client created for %s", url)
 	return nil
 }

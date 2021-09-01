@@ -200,7 +200,11 @@ func (s *DaemonRESTServer) homeLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(body)
+	_, err = w.Write(body)
+	if err != nil {
+		s.LogError("failed to write body in home link; got %s", err)
+	}
+
 }
 
 func (s *DaemonRESTServer) healthzLink(w http.ResponseWriter, r *http.Request) {

@@ -77,7 +77,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("edgeConnectorMQTTv3 failed to find configuration data for MQTT connection")
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -106,7 +106,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Edge", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Edge", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)
