@@ -115,15 +115,15 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 				d.LogInfo(d.name, "latest command resulted in a terminal state - ending", d.state.GetStateName())
 				run = false
 			} else {
-				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
+//				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
 				if run && d.state.CanExecuteCycles() {
-					d.LogDebug(d.name, "starting a cycle")
+//					d.LogDebug(d.name, "starting a cycle")
 					processed, err = d.oneProcessingCycleFxn(d)
 					if err != nil {
 						panic(err)
 					}
 					if processed == 0 {
-						d.LogDebug(d.name, "Nothing processed this loop")
+//						d.LogDebug(d.name, "Nothing processed this loop")
 					}
 				}
 			}

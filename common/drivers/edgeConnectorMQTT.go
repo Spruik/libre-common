@@ -96,7 +96,7 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 		return err
 	}
 
-	client := mqtt.NewClient()
+	client := mqtt.NewClient(mqtt.ClientConfig{})
 	client.Conn = conn
 
 	connStruct := &mqtt.Connect{

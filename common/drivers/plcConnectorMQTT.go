@@ -102,7 +102,7 @@ func (s *plcConnectorMQTT) Connect() error {
 		return err
 	}
 
-	client := mqtt.NewClient()
+	client := mqtt.NewClient(mqtt.ClientConfig{})
 	client.Conn = conn
 
 	connStruct := &mqtt.Connect{
