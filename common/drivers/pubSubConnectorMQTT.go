@@ -56,7 +56,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
 	useTls, err = strconv.ParseBool(useTlsStr)
@@ -67,13 +67,13 @@ func (s *pubSubConnectorMQTT) Connect() error {
 		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
 			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
 			if err != nil {
-				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 				return err
 			}
 		} else {
 			conn, err = tls.Dial("tcp", server, nil)
 			if err != nil {
-				s.LogErrorf("Failed to connect to %s: %s", server, err)
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 				return err
 			}
 		}
@@ -83,7 +83,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 
