@@ -180,12 +180,21 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 
 			res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
 			if err != nil || res.Results[0].StatusCode != ua.StatusOK {
-				s.LogErrorf("failed to subscribe to node %s : %s", val.(string), err)
+				s.LogErrorf("failed to subscribe to node %s : %s",val.(string),err)
+				temp := err.Error()
+				tagData := domain.StdMessageStruct{
+					Err: &temp,
+					ItemName: val.(string),
+					ChangedTimestamp: time.Now().UTC(),
+					Category: "TAGDATA",
+				}
+				s.ChangeChannels[clientName] <- tagData
 				continue
 			}
 			for _, v := range res.Results {
 				s.monitoredItemIdMap[val.(string)] = v.MonitoredItemID
 			}
+
 		}
 	}
 	go s.startSubscription(clientName, s.connectionContext, notifyCh)
@@ -252,12 +261,12 @@ func (s *plcConnectorOPCUA) startSubscription(clientName string, ctx context.Con
 					data := item.Value.Value.Value()
 					s.LogDebugf("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
 					tagData := domain.StdMessageStruct{
-						OwningAsset:      "", //will be completed by channel listener
-						ItemName:         s.clientHandleMap[item.ClientHandle],
-						ItemValue:        fmt.Sprintf("%v", data),
-						TagQuality:       128,
-						Err:              nil,
-						ChangedTimestamp: item.Value.ServerTimestamp,
+						OwningAsset: "", //will be completed by channel listener
+						ItemName:    s.clientHandleMap[item.ClientHandle],
+						ItemValue:   fmt.Sprintf("%v", data),
+						TagQuality:  128,
+						Err:         nil,
+						ChangedTimestamp: item.Value.ServerTimestamp, //time.now.utc
 					}
 					s.ChangeChannels[clientName] <- tagData
 				}
