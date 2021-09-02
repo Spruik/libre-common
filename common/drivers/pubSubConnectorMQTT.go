@@ -118,7 +118,7 @@ func(s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[s
 
 	s.singleChannel = c
 	//declare the handler for received messages
-	s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
+	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	for _,val := range topicMap{
 		err := s.SubscribeToTopic(val)
 		if err == nil{
@@ -149,11 +149,11 @@ func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string) error {
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf(" mqtt subscribe error : %s\n",  err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof(" mqtt subscribed to : %s\n", topic)
 	}
 	return err
 }
