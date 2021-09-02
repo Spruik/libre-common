@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 // Subscription transport follow Apollo's subscriptions-transport-ws protocol specification
@@ -360,7 +361,7 @@ func (sc *SubscriptionClient) wrapHandler(fn handlerFunc) func(data *json.RawMes
 // Run start websocket client and subscriptions. If this function is run with goroutine, it can be stopped after closed
 func (sc *SubscriptionClient) Run() error {
 	if err := sc.init(); err != nil {
-		return fmt.Errorf("retry timeout. exiting...")
+		return fmt.Errorf("retry timeout. exiting")
 	}
 
 	// lazily start subscriptions

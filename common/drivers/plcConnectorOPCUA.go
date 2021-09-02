@@ -22,21 +22,21 @@ type plcConnectorOPCUA struct {
 	//inherit logging
 	libreLogger.LoggingEnabler
 
-	uaClient          *opcua.Client
-	subscription  	  *opcua.Subscription
-	connectionContext context.Context
-	ChangeChannels    map[string]chan domain.StdMessageStruct
-	aliasSystem string
-	nodeMap  		  map[string]uint32
-	clientHandleMap   map[uint32]string
+	uaClient           *opcua.Client
+	subscription       *opcua.Subscription
+	connectionContext  context.Context
+	ChangeChannels     map[string]chan domain.StdMessageStruct
+	aliasSystem        string
+	nodeMap            map[string]uint32
+	clientHandleMap    map[uint32]string
 	monitoredItemIdMap map[string]uint32
 }
 
 func NewPlcConnectorOPCUA(configHook string) *plcConnectorOPCUA {
 	s := plcConnectorOPCUA{
-		ChangeChannels: map[string]chan domain.StdMessageStruct{},
-		nodeMap:  		  make(map[string]uint32),
-		clientHandleMap:   make(map[uint32]string),
+		ChangeChannels:     map[string]chan domain.StdMessageStruct{},
+		nodeMap:            make(map[string]uint32),
+		clientHandleMap:    make(map[uint32]string),
 		monitoredItemIdMap: make(map[string]uint32),
 	}
 	s.SetConfigCategory(configHook)
@@ -62,7 +62,7 @@ func (s *plcConnectorOPCUA) Connect() error {
 			s.connect()
 		}
 		if s.uaClient != nil {
-			switch s.uaClient.State(){
+			switch s.uaClient.State() {
 			case 0: // Disconnected
 				s.connect()
 			case 1: // Connected
@@ -91,9 +91,9 @@ func (s *plcConnectorOPCUA) connect() error {
 	if err != nil {
 		panic("Failed to find ENDPOINT entry in configuration for plcConnectorOPCUA")
 	}
-	endpoints, err := opcua.GetEndpoints(context.Background(),endpointStr)
+	endpoints, err := opcua.GetEndpoints(context.Background(), endpointStr)
 	if err != nil {
-		return(err)
+		return (err)
 	}
 
 	endpoint := opcua.SelectEndpoint(endpoints, "None", ua.MessageSecurityModeFromString("None"))
@@ -110,7 +110,7 @@ func (s *plcConnectorOPCUA) connect() error {
 		opcua.SecurityFromEndpoint(endpoint, ua.UserTokenTypeAnonymous),
 	}
 
-  override, err := s.GetConfigItem("OVERRIDE_ENDPOINTURL")
+	override, err := s.GetConfigItem("OVERRIDE_ENDPOINTURL")
 	if err == nil {
 		s.uaClient = opcua.NewClient(override, opts...)
 	} else {
@@ -153,7 +153,6 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	s.ChangeChannels[clientName] = c
 
-
 	notifyCh := make(chan *opcua.PublishNotificationData)
 
 	sub, err := s.uaClient.Subscribe(&opcua.SubscriptionParameters{
@@ -163,7 +162,7 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 		log.Fatal(err)
 	}
 	log.Printf("Created subscription with id %v", sub.SubscriptionID)
-	s.subscription=sub
+	s.subscription = sub
 	for key, val := range changeFilter {
 		if strings.Index(key, "Topic") == 0 {
 			id, err := ua.ParseNodeID(val.(string))
@@ -171,14 +170,13 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 				s.LogInfof("Skipping OPCUA subscription to item %s because it's external name %s is not compliant", key, val)
 				continue
 			}
-			clientHandle,ok :=s.nodeMap[val.(string)]
+			clientHandle, ok := s.nodeMap[val.(string)]
 			if !ok {
-				clientHandle = uint32(len(s.nodeMap)+1)
+				clientHandle = uint32(len(s.nodeMap) + 1)
 				s.nodeMap[val.(string)] = clientHandle
-				s.clientHandleMap[clientHandle]=val.(string)
+				s.clientHandleMap[clientHandle] = val.(string)
 			}
-			var miCreateRequest *ua.MonitoredItemCreateRequest
-			miCreateRequest = valueRequest(id,clientHandle)
+			miCreateRequest := valueRequest(id, clientHandle)
 
 			res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
 			if err != nil || res.Results[0].StatusCode != ua.StatusOK {
@@ -193,20 +191,20 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 				s.ChangeChannels[clientName] <- tagData
 				continue
 			}
-			for _,v := range res.Results{
+			for _, v := range res.Results {
 				s.monitoredItemIdMap[val.(string)] = v.MonitoredItemID
 			}
 
 		}
 	}
-	go s.startSubscription(clientName,s.connectionContext,notifyCh)
+	go s.startSubscription(clientName, s.connectionContext, notifyCh)
 }
 func valueRequest(nodeID *ua.NodeID, handle uint32) *ua.MonitoredItemCreateRequest {
 	return opcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, handle)
 }
-func (s *plcConnectorOPCUA) Unsubscribe(equipmentId *string,topicList []string) error{
-	if s.subscription != nil{
-		for _,node:= range topicList {
+func (s *plcConnectorOPCUA) Unsubscribe(equipmentId *string, topicList []string) error {
+	if s.subscription != nil {
+		for _, node := range topicList {
 			s.subscription.Unmonitor(s.monitoredItemIdMap[node])
 		}
 	}
@@ -246,7 +244,7 @@ func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, in
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // local functions
 //
-func (s *plcConnectorOPCUA) startSubscription(clientName string,ctx context.Context,notifyCh chan *opcua.PublishNotificationData){
+func (s *plcConnectorOPCUA) startSubscription(clientName string, ctx context.Context, notifyCh chan *opcua.PublishNotificationData) {
 	for {
 		select {
 		case <-ctx.Done():

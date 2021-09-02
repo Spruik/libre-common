@@ -67,18 +67,26 @@ func (s *libreConnectorMQTT) Connect() error {
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("libreConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
-		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for libreConnectorMQTT: %s", useTlsStr))
+		panic(fmt.Sprintf("Bad value for MQTT_USE_SSL in configuration for libreConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+		if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip == "true" {
 			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
 		} else {
 			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
 		}
 	} else {
 		conn, err = net.Dial("tcp", server)
@@ -86,7 +94,7 @@ func (s *libreConnectorMQTT) Connect() error {
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 

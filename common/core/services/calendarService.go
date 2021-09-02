@@ -1,6 +1,7 @@
 package services
 
 import (
+	"strings"
 	"time"
 
 	"github.com/Spruik/libre-common/common/core/domain"
@@ -17,7 +18,8 @@ type calendarService struct {
 	eval           chan bool
 	tickerDuration time.Duration
 
-	cache map[string]domain.WorkCalendarEntryType
+	cacheType    map[string]domain.WorkCalendarEntryType
+	cacheEntries map[string]string
 
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
@@ -33,7 +35,8 @@ func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish
 		publish:        publish,
 		ticker:         nil,
 		eval:           make(chan bool),
-		cache:          map[string]domain.WorkCalendarEntryType{},
+		cacheType:      map[string]domain.WorkCalendarEntryType{},
+		cacheEntries:   map[string]string{},
 		tickerDuration: time.Second * 60,
 	}
 
@@ -96,6 +99,10 @@ func (s *calendarService) Start() (err error) {
 					return
 				case t := <-s.ticker.C:
 					s.LogDebugf("Tick at %s\n", t)
+					s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
+					if err != nil {
+						s.LogErrorf("calendarService failed to get all active work calendars; got %s", err)
+					}
 					s.calculateCalendars()
 				}
 			}
@@ -123,38 +130,72 @@ func (s *calendarService) calculateCalendars() {
 		if workCalendar.IsActive && len(workCalendar.Equipment) > 0 {
 
 			// Get Current WorkCalendar EntryType
-			calendarEntryType, err := workCalendar.GetCurrentEntryType()
+			calendarEntryType, names, err := workCalendar.GetCurrentEntryTypeAndNames()
 			if err != nil {
 				s.LogErrorf("%s", err)
 				continue
 			}
 
+			calendarEntries := strings.Join(names, ", ")
+
 			// Inform Libre
 			for _, equip := range workCalendar.Equipment {
-				s.LogDebugf("\tequipment: %s(%s): is currently %s\n", equip.Name, equip.Id, calendarEntryType)
-
-				msg := domain.StdMessageStruct{
-					OwningAsset:   equip.Name,
-					OwningAssetId: equip.Id,
-					ItemName:      "workCalendarCategory",
-					ItemNameExt:   map[string]string{},
-					ItemId:        "",
-					ItemValue:     string(calendarEntryType),
-					ItemDataType:  "STRING",
-					TagQuality:    1,
-					Err:           nil,
-					ChangedTimestamp:   time.Now().UTC(),
-					Category:      "TAGDATA",
-					Topic:         equip.Name + "/workCalendarCategory",
-				}
-
-				if lastState := s.cache[equip.Id]; lastState != calendarEntryType {
-					msg.ItemOldValue = string(lastState)
-					s.publish.SendStdMessage(msg)
-					s.cache[equip.Id] = calendarEntryType
-				}
-
+				s.LogDebugf("\tequipment: %s(%s): is currently %s with entries %s\n", equip.Name, equip.Id, calendarEntryType, calendarEntries)
+				s.publishWorkCalendarType(equip, calendarEntryType)
+				s.publishWorkCalendarEntryNames(equip, calendarEntries)
 			}
 		}
+	}
+}
+
+func (s *calendarService) publishWorkCalendarType(equip domain.Equipment, calendarEntryType domain.WorkCalendarEntryType) {
+	msg := domain.StdMessageStruct{
+		OwningAsset:      equip.Name,
+		OwningAssetId:    equip.Id,
+		ItemName:         "workCalendarCategory",
+		ItemNameExt:      map[string]string{},
+		ItemId:           "",
+		ItemValue:        string(calendarEntryType),
+		ItemDataType:     "STRING",
+		TagQuality:       1,
+		Err:              nil,
+		ChangedTimestamp: time.Now().UTC(),
+		Category:         "TAGDATA",
+		Topic:            equip.Name + "/workCalendarCategory",
+	}
+
+	if lastState := s.cacheType[equip.Id]; lastState != calendarEntryType {
+		msg.ItemOldValue = string(lastState)
+		err := s.publish.SendStdMessage(msg)
+		if err != nil {
+			s.LogErrorf("failed to send message %v; got %s", msg, err)
+		}
+		s.cacheType[equip.Id] = calendarEntryType
+	}
+}
+
+func (s *calendarService) publishWorkCalendarEntryNames(equip domain.Equipment, calendarEntries string) {
+	msg := domain.StdMessageStruct{
+		OwningAsset:      equip.Name,
+		OwningAssetId:    equip.Id,
+		ItemName:         "workCalendarEntry",
+		ItemNameExt:      map[string]string{},
+		ItemId:           "",
+		ItemValue:        calendarEntries,
+		ItemDataType:     "STRING",
+		TagQuality:       1,
+		Err:              nil,
+		ChangedTimestamp: time.Now().UTC(),
+		Category:         "TAGDATA",
+		Topic:            equip.Name + "/workCalendarEntry",
+	}
+
+	if lastState := s.cacheEntries[equip.Id]; lastState != calendarEntries {
+		msg.ItemOldValue = string(lastState)
+		err := s.publish.SendStdMessage(msg)
+		if err != nil {
+			s.LogErrorf("failed to send message %v; got %s", msg, err)
+		}
+		s.cacheEntries[equip.Id] = calendarEntries
 	}
 }

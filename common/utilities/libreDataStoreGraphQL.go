@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 	"github.com/hasura/go-graphql-client"
-	"time"
 )
 
 type libreDataStoreGraphQL struct {
@@ -141,7 +142,12 @@ func (s *libreDataStoreSubscriptionGraphQL) GetSubscriptionNotifications(notific
 	if err == nil {
 		s.LogDebugf("GetSubscriptionNotifications subscribed with id=%s", subid)
 		s.subscriptionId = subid
-		go s.subClient.Run()
+		go func() {
+			err = s.subClient.Run()
+			if err != nil {
+				s.LogErrorf("failed to run sub client; got %s", err)
+			}
+		}()
 	} else {
 		panic(fmt.Sprintf("Error subscribing in graphQL client: %s", err))
 	}

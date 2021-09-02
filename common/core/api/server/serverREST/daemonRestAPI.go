@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/ports"
-	"github.com/Spruik/libre-common/common/version"
-	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/Spruik/libre-common/common/core/ports"
+	"github.com/Spruik/libre-common/common/version"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	"github.com/gorilla/mux"
 )
 
 type DaemonRESTServer struct {
@@ -31,7 +32,7 @@ type DaemonRESTServer struct {
 func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s := DaemonRESTServer{
 		monitoredDaemon: daemon,
-		endpoints:       make([]string, 0, 0),
+		endpoints:       make([]string, 0),
 	}
 	s.SetLoggerConfigHook("RESTAPI")
 	s.SetConfigCategory("RESTAPI")
@@ -61,7 +62,7 @@ func NewDaemonRESTServer(daemon ports.DaemonIF) *DaemonRESTServer {
 	s.endpoints = append(s.endpoints, ep)
 
 	// entry point for each implemented command
-	for cmd, _ := range s.monitoredDaemon.GetCommands() {
+	for cmd := range s.monitoredDaemon.GetCommands() {
 		ep = fmt.Sprintf("/%s/control/%s", s.monitoredDaemon.GetName(), cmd.GetCommandName())
 		if cmd.GetInputParamNames() != nil {
 			for _, p := range cmd.GetInputParamNames() {
@@ -100,16 +101,16 @@ func (s *DaemonRESTServer) rootLink(w http.ResponseWriter, r *http.Request) {
 		Endpoints  []string
 	}{
 		DaemonName: s.monitoredDaemon.GetName(),
-		Endpoints:  make([]string, 0, 0),
+		Endpoints:  make([]string, 0),
 	}
-	for _, ep := range s.endpoints {
-		resp.Endpoints = append(resp.Endpoints, ep)
-	}
+
+	resp.Endpoints = append(resp.Endpoints, s.endpoints...)
+
 	respBytes, err := json.MarshalIndent(&resp, "", "   ")
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
 	} else {
-		_, _ = fmt.Fprintln(w, fmt.Sprintf("%s", err))
+		_, _ = fmt.Fprintf(w, "%s\n", err)
 	}
 }
 
@@ -120,7 +121,7 @@ func (s *DaemonRESTServer) controlLink(w http.ResponseWriter, r *http.Request) {
 		Endpoints  []string
 	}{
 		DaemonName: s.monitoredDaemon.GetName(),
-		Endpoints:  make([]string, 0, 0),
+		Endpoints:  make([]string, 0),
 	}
 	for _, ep := range s.endpoints {
 		if strings.Contains(ep, "/control/") {
@@ -131,7 +132,7 @@ func (s *DaemonRESTServer) controlLink(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		_, _ = fmt.Fprintln(w, string(respBytes))
 	} else {
-		_, _ = fmt.Fprintln(w, fmt.Sprintf("%s", err))
+		_, _ = fmt.Fprintf(w, "%s\n", err)
 	}
 }
 
@@ -145,8 +146,8 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 		cmdName = tokens[0]
 	}
 	var targetCommand ports.DaemonCommandIF = nil
-	for cmd, _ := range s.monitoredDaemon.GetCommands() {
-		if strings.ToUpper(cmd.GetCommandName()) == strings.ToUpper(cmdName) {
+	for cmd := range s.monitoredDaemon.GetCommands() {
+		if strings.EqualFold(cmd.GetCommandName(), cmdName) {
 			targetCommand = cmd
 			break
 		}
@@ -175,7 +176,7 @@ func (s *DaemonRESTServer) controlCmdLink(w http.ResponseWriter, r *http.Request
 					_, _ = fmt.Fprintln(w, "Command completed successfully with no return data")
 				}
 			} else {
-				_, _ = fmt.Fprintln(w, fmt.Sprintf("Error executing command:%+v", err))
+				_, _ = fmt.Fprintf(w, "Error executing command:%+v\n", err)
 			}
 		}
 	}
@@ -199,7 +200,11 @@ func (s *DaemonRESTServer) homeLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(body)
+	_, err = w.Write(body)
+	if err != nil {
+		s.LogError("failed to write body in home link; got %s", err)
+	}
+
 }
 
 func (s *DaemonRESTServer) healthzLink(w http.ResponseWriter, r *http.Request) {

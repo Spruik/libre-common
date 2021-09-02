@@ -211,7 +211,7 @@ func TestCalendarService(t *testing.T) {
 		},
 	}
 
-	libreConfig.Initialize("../../../config/config.json")
+	libreConfig.Initialize("../../../config/calender-test-config.json")
 	libreLogger.Initialize("libreLogger")
 
 	service := NewCalendarService("calendarService", fakeLibreDataStore, fakeLibreConnector)
@@ -259,7 +259,10 @@ func TestCalendarService(t *testing.T) {
 		}
 	}
 	service.SetTickSpeed(time.Second * 1)
-	service.Start()
+	err = service.Start()
+	if err != nil {
+		t.Errorf("TestCalendarService failed, expected no error; got %s", err)
+	}
 	time.Sleep(20 * time.Millisecond)
 
 	expectedMessage := domain.StdMessageStruct{
@@ -292,7 +295,10 @@ func TestCalendarService(t *testing.T) {
 		t.Errorf("TestCalendarService failed comparing StdMessageStructs want %v; got %v", expectedMessage, actualMessage)
 	}
 	// Start it again
-	service.Start()
+	err = service.Start()
+	if err != nil {
+		t.Errorf("TestCalendarService expected no error; got %s", err)
+	}
 	time.Sleep(20 * time.Millisecond)
 	service.Stop()
 	time.Sleep(1 * time.Second)

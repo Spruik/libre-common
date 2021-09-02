@@ -2,15 +2,16 @@ package utilities
 
 import (
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	"github.com/Spruik/libre-common/common/core/ports"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/Spruik/libre-common/common/core/ports"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type DaemonBase struct {
@@ -211,10 +212,9 @@ func (d *DaemonBase) ExecuteCommandFxn(cmd ports.DaemonCommandIF, params map[str
 	fxn := d.controlFxns[cmd]
 	if fxn != nil {
 		return fxn(d, params)
-	} else {
-		panic("state change function not found")
 	}
-	return nil, nil
+	panic("state change function not found")
+
 }
 func (d *DaemonBase) GetName() string {
 	return d.name

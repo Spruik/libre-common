@@ -1,0 +1,9 @@
+{
+    "libreLogger" : {
+        "defaultLevel": "DEBUG",
+        "defaultDestination": "CONSOLE",
+        "loggers": [
+            {"MAIN": {"topic":"MAIN"}}
+        ]
+    }
+}

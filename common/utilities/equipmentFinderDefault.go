@@ -2,13 +2,14 @@ package utilities
 
 import (
 	"encoding/json"
+	"strings"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/queries"
-	"github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"strings"
-	"time"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
 )
 
 type equipmentFinderDefault struct {
@@ -43,7 +44,7 @@ func (s *equipmentFinderDefault) FindEquipment() ([]domain.Equipment, error) {
 	txn := s.dataStore.BeginTransaction(false, "findeq")
 	defer txn.Dispose()
 
-	eqElLevels, includeIds, excludeIds, err := s.getQueryInput(txn)
+	eqElLevels, includeIds, excludeIds, _ := s.getQueryInput(txn)
 
 	eqs, err := queries.GetActiveEquipmentByLevelListWithIncExc(txn, eqElLevels, includeIds, excludeIds)
 	return eqs, err
@@ -148,7 +149,7 @@ func (s *equipmentFinderDefault) SubscribeToChanges(notificationChannel chan por
 func (s *equipmentFinderDefault) getQueryInput(txn ports.LibreDataStoreTransactionPort) ([]domain.EquipmentElementLevel, []string, []string, error) {
 	var err error
 	//get the equipment type list from config
-	eqElLevels := make([]domain.EquipmentElementLevel, 0, 0)
+	eqElLevels := make([]domain.EquipmentElementLevel, 0)
 	var eqElLevel domain.EquipmentElementLevel
 	levelList, _ := s.GetConfigItemWithDefault("ACTIVE_EQ_LEVELS", "")
 	if levelList != "" {
@@ -161,7 +162,7 @@ func (s *equipmentFinderDefault) getQueryInput(txn ports.LibreDataStoreTransacti
 
 	//get the includes from config
 	incList, _ := s.GetConfigItemWithDefault("INCLUDE_EQUIPMENT", "")
-	includeIds := make([]string, 0, 0)
+	includeIds := make([]string, 0)
 	if incList != "" {
 		incSlice := strings.Split(incList, ",")
 		for _, eqName := range incSlice {
@@ -176,7 +177,7 @@ func (s *equipmentFinderDefault) getQueryInput(txn ports.LibreDataStoreTransacti
 
 	//get the excludes from config
 	excList, _ := s.GetConfigItemWithDefault("EXCLUDE_EQUIPMENT", "")
-	excludeIds := make([]string, 0, 0)
+	excludeIds := make([]string, 0)
 	if excList != "" {
 		excSlice := strings.Split(excList, ",")
 		for _, eqName := range excSlice {

@@ -631,7 +631,7 @@ func TestGetCurrentEntryType(t *testing.T) {
 		Equipment: []Equipment{},
 	}
 
-	entryType, err := workCalendar.GetCurrentEntryType()
+	entryType, names, err := workCalendar.GetCurrentEntryTypeAndNames()
 
 	if err != nil {
 		t.Errorf("Failed to GetCurrentEntryType. Expected no error got %s", err)
@@ -639,5 +639,11 @@ func TestGetCurrentEntryType(t *testing.T) {
 
 	if entryType != PlannedBusyTime {
 		t.Errorf("Failed to GetCurrentEntryType")
+	}
+
+	for _, name := range names {
+		if name != "test" {
+			t.Errorf("Failed to get names of GetCurrentEntryType")
+		}
 	}
 }
