@@ -53,7 +53,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	}
 	serverUrl,err := url.Parse(server)
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 	cliCfg := autopaho.ClientConfig{
 		BrokerUrls:        []*url.URL{serverUrl},
@@ -93,6 +93,7 @@ func (s *pubSubConnectorMQTT) Close() error {
 	s.LogInfo("Edge Connection Closed\n")
 	return nil
 }
+
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
 	s.LogDebug("Start publishing message to topic "+topic)
@@ -110,7 +111,7 @@ func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qo
 	return nil
 
 }
-func(s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string){
+func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string) {
 	s.LogDebugf("BEGIN Subscribe")
 	// the topic always starts with Libre.<EVENT_TYPE>.<ENTITY>
 	// where EVENT_TYPE is event, command or subscription
@@ -121,9 +122,9 @@ func(s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[s
 	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	for _,val := range topicMap{
 		err := s.SubscribeToTopic(val)
-		if err == nil{
-			s.LogInfof("Subscribed to topic %s",val)
-		}else{
+		if err == nil {
+			s.LogInfof("Subscribed to topic %s", val)
+		} else {
 			panic(err)
 		}
 	}
@@ -162,7 +163,7 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
 
 	message := domain.StdMessage{
-		Topic: m.Topic,
+		Topic:   m.Topic,
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
 	s.singleChannel <- &message

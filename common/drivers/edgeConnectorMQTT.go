@@ -5,16 +5,19 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
+
+const ERROR_MESSAGE_FAILED_TO_CONNECT = "Failed to connect to %s: %s"
 
 type edgeConnectorMQTT struct {
 	//inherit logging functions
@@ -77,7 +80,7 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
 	useTls, err = strconv.ParseBool(useTlsStr)
@@ -85,14 +88,25 @@ func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for edgeConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip == "true" {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
-
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 
@@ -179,13 +193,13 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
@@ -255,7 +269,7 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
-//	s.LogDebug("BEGIN tagChangeHandler")
+	//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)

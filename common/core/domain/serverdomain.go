@@ -21,10 +21,11 @@ type AdminCommand struct {
 
 type DateTime string
 type StdMessage struct {
-	Topic string
+	Topic   string
 	Payload *json.RawMessage
 }
 type StdMessageStruct struct {
+
 	OwningAsset   string
 	OwningAssetId string
 	ItemName      string
@@ -34,7 +35,7 @@ type StdMessageStruct struct {
 	ItemOldValue  string
 	ItemDataType  string
 	TagQuality    int
-	Err           error
+	Err           *string
 	ChangedTimestamp   time.Time
 	PreviousTimestamp   time.Time
 	Category      string

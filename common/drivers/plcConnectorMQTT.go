@@ -4,16 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	mqtt "github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
@@ -35,8 +36,8 @@ func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
 	s := plcConnectorMQTT{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
-		topicTemplateList:    make([]string, 0, 0),
-		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
+		topicTemplateList:    make([]string, 0),
+		topicParseRegExpList: make([]*regexp.Regexp, 0),
 		listenMutex:          sync.Mutex{},
 	}
 	s.SetConfigCategory(configHook)
@@ -83,7 +84,7 @@ func (s *plcConnectorMQTT) Connect() error {
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("plcConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
 	useTls, err = strconv.ParseBool(useTlsStr)
@@ -91,14 +92,26 @@ func (s *plcConnectorMQTT) Connect() error {
 		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
-		conn, err = tls.Dial("tcp", server, nil)
+		if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip == "true" {
+			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
+		} else {
+			conn, err = tls.Dial("tcp", server, nil)
+			if err != nil {
+				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+				return err
+			}
+		}
 	} else {
 		conn, err = net.Dial("tcp", server)
 	}
 	//conn, err = net.Dial("tcp", server)
 	if err != nil {
 
-		s.LogErrorf("Failed to connect to %s: %s", server, err)
+		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 
@@ -205,12 +218,12 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 		s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
-func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string,topicList []string)error {
+func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string, topicList []string) error {
 	u := mqtt.Unsubscribe{
-		Topics: topicList,
+		Topics:     topicList,
 		Properties: nil,
 	}
-	_,err := s.mqttClient.Unsubscribe(context.Background(), &u)
+	_, err := s.mqttClient.Unsubscribe(context.Background(), &u)
 	return err
 }
 

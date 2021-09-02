@@ -134,18 +134,19 @@ type WorkCalendar struct {
 	Equipment   []Equipment                   `json:"equipment,omitempty"`
 }
 
-// GetCurrentEntryType gets the current (now) WorkCalendarEntryType for a work calendar
-func (workCalendar *WorkCalendar) GetCurrentEntryType() (entryType WorkCalendarEntryType, err error) {
+// GetCurrentEntryTypeAndNames gets the current (now) WorkCalendarEntryType and entry names for a work calendar
+func (workCalendar *WorkCalendar) GetCurrentEntryTypeAndNames() (entryType WorkCalendarEntryType, names []string, err error) {
 	entryType = PlannedShutdown
 	entries, err := workCalendar.GetCurrentEntries()
 	if err != nil {
 		msg := fmt.Sprintf("work calendar: %s(%s). failed to get calendar entries because %s", workCalendar.Name, workCalendar.ID, err)
-		return entryType, errors.New(msg)
+		return entryType, names, errors.New(msg)
 	}
 	for _, entry := range entries {
+		names = append(names, entry.Description)
 		_, entryType = CompareWorkCalendarEntryType(entryType, entry.EntryType)
 	}
-	return entryType, nil
+	return entryType, names, nil
 }
 
 // GetCurrentEntries gets the all the WorkCalendarEntries that elapse over now for the WorkCalendar

@@ -3,13 +3,14 @@ package drivers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type libreConnectorMQTTv3 struct {
@@ -64,7 +65,7 @@ func (s *libreConnectorMQTTv3) Connect() error {
 		}
 	}
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("libreConnectorMQTTv3 failed to find configuration data for MQTT connection")
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -77,6 +78,11 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
+
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
 		opts.SetClientID(svcName).SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
@@ -88,7 +94,7 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Plc", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)

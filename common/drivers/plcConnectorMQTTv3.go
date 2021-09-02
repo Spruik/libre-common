@@ -4,12 +4,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
+	"log"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"io/ioutil"
-	"log"
+
 	//"os"
 
 	//"net"
@@ -39,8 +41,8 @@ func NewPlcConnectorMQTTv3(configCategoryName string) *plcConnectorMQTTv3 {
 	s := plcConnectorMQTTv3{
 		mqttClient:           nil,
 		ChangeChannels:       make(map[string]chan domain.StdMessageStruct),
-		topicTemplateList:    make([]string, 0, 0),
-		topicParseRegExpList: make([]*regexp.Regexp, 0, 0),
+		topicTemplateList:    make([]string, 0),
+		topicParseRegExpList: make([]*regexp.Regexp, 0),
 		listenMutex:          sync.Mutex{},
 	}
 	s.SetConfigCategory(configCategoryName)
@@ -82,7 +84,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	}
 	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("plcConnectorMQTTv3 failed to find configuration data for MQTT connection")
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -98,6 +100,11 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
+
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
 		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
@@ -106,7 +113,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Plc", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Plc", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)
@@ -182,7 +189,7 @@ func (s *plcConnectorMQTTv3) ListenForPlcTagChanges(c chan domain.StdMessageStru
 		go s.SubscribeToTopic(fmt.Sprintf("%v", key))
 	}
 }
-func (s *plcConnectorMQTTv3) Unsubscribe(equipmentId *string,topicList []string)error {
+func (s *plcConnectorMQTTv3) Unsubscribe(equipmentId *string, topicList []string) error {
 	//ToDo: Implement Unsubscribe
 	return nil
 }

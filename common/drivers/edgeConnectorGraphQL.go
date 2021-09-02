@@ -3,13 +3,16 @@ package drivers
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/drivers/gql"
 	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
+
 	//"github.com/nats-io/nats.go"
 	"log"
 	"regexp"
+
 	//"strings"
 	"time"
 )
@@ -62,7 +65,10 @@ func (s *edgeConnectorGraphQL) Connect(connInfo map[string]interface{}) error {
 			return err
 		})
 	//defer s.gqlClient.Close()
-	go s.gqlClient.Run()
+	go func() {
+		err := s.gqlClient.Run()
+		s.LogError(err)
+	}()
 	s.LogInfof("GraphQL Data Store client created for %s", url)
 	return nil
 }
@@ -100,13 +106,13 @@ func (s *edgeConnectorGraphQL) ListenForEdgeTagChanges(c chan domain.StdMessageS
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	for _, val := range changeFilter {
@@ -134,7 +140,7 @@ func (s *edgeConnectorGraphQL) subscribe(sub *domain.DataSubscription) error {
 		if err != nil {
 			return err
 		}
-		j, err := json.Marshal(data)
+		j, _ := json.Marshal(data)
 		s.LogDebug("Received msg : " + string(j))
 		msg := domain.StdMessageStruct{
 			OwningAsset:   sub.Topic,

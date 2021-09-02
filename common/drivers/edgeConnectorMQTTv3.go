@@ -3,10 +3,12 @@ package drivers
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+
 	//"os"
 
 	"regexp"
@@ -75,7 +77,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	s.LogDebug("ServiceName = " + svcName)
 	if err != nil {
-		panic("Failed to find configuration data for MQTT connection")
+		panic("edgeConnectorMQTTv3 failed to find configuration data for MQTT connection")
 	}
 
 	opts := mqtt.NewClientOptions()
@@ -91,6 +93,11 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	if useTls {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
+
+		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+			tlsConfig.InsecureSkipVerify = true
+		}
+
 		opts.SetTLSConfig(tlsConfig)
 		//conn, err = tls.Dial("tcp", server, nil)
 	} else {
@@ -99,7 +106,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Edge", "Failed to connect to %s: %s", server, err)
+		s.LogErrorf("Edge", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)
@@ -154,13 +161,13 @@ func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageSt
 		if s.singleChannel == nil {
 			s.singleChannel = c
 		} else {
-			panic(fmt.Sprintf("Cannot use more than one single channel listen"))
+			panic("Cannot use more than one single channel listen")
 		}
 	} else {
 		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
 		} else {
-			panic(fmt.Sprintf("Cannot single channel listen with client-based listen"))
+			panic("Cannot single channel listen with client-based listen")
 		}
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
