@@ -55,7 +55,6 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 		loggerHook = domain.DEFAULT_LOGGER_NAME
 	}
 	s.SetLoggerConfigHook(loggerHook)
-	s.LogDebugf("Logging initialised")
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/Report/<TAGNAME>")
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
