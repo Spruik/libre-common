@@ -33,6 +33,7 @@ type edgeConnectorMQTT struct {
 
 	mqttConnectionManager     *autopaho.ConnectionManager
 	mqttClient     *paho.Client
+
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
 	config         map[string]string
@@ -173,21 +174,21 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
-	s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
+	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
 			topic := s.buildTopicString(s.tagDataCategory, val)
 			err := s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
 			topic = s.buildTopicString(s.eventCategory, val)
 			err = s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
@@ -228,11 +229,11 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf("mqtt subscribe error : %s\n", err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof("mqtt subscribed to : %s\n", topic)
 	}
 	return err
 }

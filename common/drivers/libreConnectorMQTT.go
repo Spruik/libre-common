@@ -100,19 +100,19 @@ func (s *libreConnectorMQTT) Connect() error {
 
 //Close implements the interface by closing the MQTT client
 func (s *libreConnectorMQTT) Close() error {
-	if s.mqttClient == nil {
-		return nil
-	}
-	disconnStruct := &paho.Disconnect{
-		Properties: nil,
-		ReasonCode: 0,
-	}
-	err := s.mqttClient.Disconnect(disconnStruct)
-	if err == nil {
-		s.mqttClient = nil
-	}
+	//if s.mqttClient == nil {
+	//	return nil
+	//}
+	//disconnStruct := &paho.Disconnect{
+	//	Properties: nil,
+	//	ReasonCode: 0,
+	//}
+	//err := s.mqttClient.Disconnect(disconnStruct)
+	//if err == nil {
+	//	s.mqttClient = nil
+	//}
 	s.LogInfo("Libre Connection Closed\n")
-	return err
+	return nil
 }
 
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
@@ -168,11 +168,11 @@ func (s *libreConnectorMQTT) subscribeToTopic(topic string) {
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error :%s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf("mqtt subscribe error :%s\n", err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof("mqtt subscribed to : %s\n", topic)
 	}
 }
 

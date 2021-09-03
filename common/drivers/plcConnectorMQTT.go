@@ -187,7 +187,7 @@ func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string, topicList []string) 
 		Topics:     topicList,
 		Properties: nil,
 	}
-	_, err := s.mqttClient.Unsubscribe(context.Background(), &u)
+	_, err := s.mqttConnectionManager.Unsubscribe(context.Background(), &u)
 	return err
 }
 
@@ -219,11 +219,11 @@ func (s *plcConnectorMQTT) SubscribeToTopic(topic string) {
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf("mqtt subscribe error : %s\n", err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof("mqtt subscribed to : %s\n", topic)
 	}
 }
 
