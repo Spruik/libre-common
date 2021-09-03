@@ -2,19 +2,24 @@ package drivers
 
 import (
 	"context"
-	"crypto/tls"
+
 	"encoding/json"
 	"fmt"
-	"net"
+	"github.com/Spruik/libre-common/common/drivers/autopaho"
+
+	"log"
+
+	"net/url"
+	"os"
 	"regexp"
-	"strconv"
+
 	"strings"
 	"time"
 
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
+	paho "github.com/eclipse/paho.golang/paho"
 )
 
 const ERROR_MESSAGE_FAILED_TO_CONNECT = "Failed to connect to %s: %s"
@@ -26,7 +31,9 @@ type edgeConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttClient     *mqtt.Client
+	mqttConnectionManager     *autopaho.ConnectionManager
+	mqttClient     *paho.Client
+
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
 	config         map[string]string
@@ -63,108 +70,76 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 // interface functions
 //
 //Connect implements the interface by creating an MQTT client
-func (s *edgeConnectorMQTT) Connect(connInfo map[string]interface{}) error {
-	var conn net.Conn
-	var useTlsStr string
-	var useTls bool
-	var connAck *mqtt.Connack
+func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	var err error
-	var server, user, pwd, svcName string
+	var server, user, pwd string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if useTlsStr, err = s.GetConfigItemWithDefault("MQTT_USE_TLS", "false"); err == nil {
-			if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-				if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
-					svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
-				}
-			}
+		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
+			user, err = s.GetConfigItem("MQTT_USER")
 		}
 	}
+	serverUrl,err := url.Parse(server)
 	if err != nil {
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
-	useTls, err = strconv.ParseBool(useTlsStr)
-	if err != nil {
-		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for edgeConnectorMQTT: %s", useTlsStr))
+	cliCfg := autopaho.ClientConfig{
+		BrokerUrls:        []*url.URL{serverUrl},
+		KeepAlive:         300,
+		ConnectRetryDelay: 10 * time.Second,
+		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
+			fmt.Println("mqtt connection up")
+		},
+		OnConnectError: func(err error) { fmt.Printf("error whilst attempting connection: %s\n", err) },
+		ClientConfig: paho.ClientConfig{
+			ClientID: clientId,
+			Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
+				s.tagChangeHandler(m)
+			}),
+			OnClientError: func(err error) { fmt.Printf("server requested disconnect: %s\n", err) },
+			OnServerDisconnect: func(d *paho.Disconnect) {
+				if d.Properties != nil {
+					fmt.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+				} else {
+					fmt.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+				}
+			},
+		},
 	}
-	if useTls {
-		if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip == "true" {
-			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
-			if err != nil {
-				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-				return err
-			}
-		} else {
-			conn, err = tls.Dial("tcp", server, nil)
-			if err != nil {
-				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-				return err
-			}
-		}
-	} else {
-		conn, err = net.Dial("tcp", server)
-	}
-	//conn, err = net.Dial("tcp", server)
-	if err != nil {
-		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-		return err
-	}
-
-	client := mqtt.NewClient()
-	client.Conn = conn
-
-	connStruct := &mqtt.Connect{
-		KeepAlive:  300,
-		ClientID:   fmt.Sprintf("%v", svcName),
-		CleanStart: true,
-		Username:   user,
-		Password:   []byte(pwd),
-	}
-
-	if user != "" {
-		connStruct.UsernameFlag = true
-	}
-	if pwd != "" {
-		connStruct.PasswordFlag = true
-	}
-
-	connAck, err = client.Connect(context.Background(), connStruct)
-	if err != nil {
-		s.LogErrorf("Connect return err=%s", err)
-	}
-	if connAck.ReasonCode != 0 {
-		var cid string
-		if s.mqttClient == nil {
-			cid = "nil clientid"
-		} else {
-			cid = s.mqttClient.ClientID
-		}
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError("Plc", msg)
-	} else {
-		s.mqttClient = client
-		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
-	}
+	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
+	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
+	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	ctx, _ := context.WithCancel(context.Background())
+	cm, err := autopaho.NewConnection(ctx, cliCfg)
+	err = cm.AwaitConnection(ctx)
+	s.mqttConnectionManager=cm
 	return err
 }
 
 //Close implements the interface by closing the MQTT client
 func (s *edgeConnectorMQTT) Close() error {
-	if s.mqttClient == nil {
-		return nil
-	}
-	disconnStruct := &mqtt.Disconnect{
-		Properties: nil,
-		ReasonCode: 0,
-	}
-	err := s.mqttClient.Disconnect(disconnStruct)
-	if err == nil {
-		s.mqttClient = nil
-	}
+	//if s.mqttClient == nil {
+	//	return nil
+	//}
+	//disconnStruct := &paho.Disconnect{
+	//	Properties: nil,
+	//	ReasonCode: 0,
+	//}
+	//err := s.mqttClient.Disconnect(disconnStruct)
+	//if err == nil {
+	//	s.mqttClient = nil
+	//}
 	s.LogInfo("Edge Connection Closed\n")
-	return err
+	return nil
 }
 
+//SendTagChange implements the interface by publishing the tag data to the standard tag change topic
+func (s *edgeConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
+	topic := s.buildPublishTopicString(msg)
+	s.LogDebugf("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
+	s.send(topic, msg)
+	return nil
+}
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
 func (s *edgeConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	//TODO - need top figure out what topic/message to publish that will request a read from the PLC
@@ -204,34 +179,72 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
-	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
+	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
-			topic := s.buildTopicString(s.tagDataCategory, val)
+			topic := s.buildSubscriptionTopicString(s.tagDataCategory, val)
 			err := s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
-			topic = s.buildTopicString(s.eventCategory, val)
+			topic = s.buildSubscriptionTopicString(s.eventCategory, val)
 			err = s.SubscribeToTopic(topic)
 			if err == nil {
-				s.LogInfof("%s subscribed to topic %s", s.mqttClient.ClientID, topic)
+				s.LogInfof("subscribed to topic %s", topic)
 			} else {
 				panic(err)
 			}
 		}
 	}
 }
-
-func (s *edgeConnectorMQTT) buildTopicString(category string, changeFilerVal interface{}) string {
+func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
+	jsonBytes, err := json.Marshal(message)
+	retain := false
+	if message.Category == "TAGDATA" {
+		retain = true
+	}
+	if err == nil {
+		pubStruct := &paho.Publish{
+			QoS:        0,
+			Retain:     retain,
+			Topic:      topic,
+			Properties: nil,
+			Payload:    jsonBytes,
+		}
+		pubResp, err := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
+		if err != nil {
+			s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
+		} else {
+			s.LogInfof("Published to %s", topic)
+		}
+	} else {
+		s.LogErrorf("mqtt publish error : failed to marshal the message %+v [%s]\n", message, err)
+	}
+}
+func (s *edgeConnectorMQTT) buildSubscriptionTopicString(category string, changeFilerVal interface{}) string {
 	topic := s.topicTemplate
 	topic = strings.Replace(topic, "<EQNAME>", fmt.Sprintf("%s", changeFilerVal), -1)
 	//TODO - more robust and complete template processing
 	topic = strings.Replace(topic, "<CATEGORY>", category, -1)
 	topic = strings.Replace(topic, "<TAGNAME>", "#", -1)
+	return topic
+}
+func (s *edgeConnectorMQTT) buildPublishTopicString(tag domain.StdMessageStruct) string {
+	var topic string = s.topicTemplate
+	topic = strings.Replace(topic, "<EQNAME>", tag.OwningAsset, -1)
+	switch tag.Category {
+	case "TAGDATA":
+		topic = strings.Replace(topic, "<CATEGORY>", s.tagDataCategory, -1)
+	case "EVENT":
+		topic = strings.Replace(topic, "<CATEGORY>", s.eventCategory, -1)
+	default:
+		topic = strings.Replace(topic, "<CATEGORY>", "EdgeMessage", -1)
+	}
+	topic = strings.Replace(topic, "<TAGNAME>", tag.ItemName, -1)
+	//TODO - more robust and complete template processing
 	return topic
 }
 func (s *edgeConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
@@ -244,31 +257,31 @@ func (s *edgeConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, in
 // support functions
 //
 func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
-	subPropsStruct := &mqtt.SubscribeProperties{
+	subPropsStruct := &paho.SubscribeProperties{
 		SubscriptionIdentifier: nil,
 		User:                   nil,
 	}
-	var subMap = make(map[string]mqtt.SubscribeOptions)
-	subMap[topic] = mqtt.SubscribeOptions{
+	var subMap = make(map[string]paho.SubscribeOptions)
+	subMap[topic] = paho.SubscribeOptions{
 		QoS:               0,
 		RetainHandling:    0,
 		NoLocal:           false,
 		RetainAsPublished: false,
 	}
-	subStruct := &mqtt.Subscribe{
+	subStruct := &paho.Subscribe{
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf("mqtt subscribe error : %s\n", err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof("mqtt subscribed to : %s\n", topic)
 	}
 	return err
 }
 
-func (s *edgeConnectorMQTT) tagChangeHandler(m *mqtt.Publish) {
+func (s *edgeConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 	//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct

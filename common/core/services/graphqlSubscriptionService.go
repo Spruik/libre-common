@@ -25,8 +25,8 @@ func GetGraphqlSubscriptionServiceInstance() *graphqlSubscriptionService {
 	return graphqlSubscriptionServiceInstance
 }
 
-func (s *graphqlSubscriptionService) Connect(connInfo map[string]interface{}) error {
-	return s.port.Connect(connInfo)
+func (s *graphqlSubscriptionService) Connect(clientId string) error {
+	return s.port.Connect(clientId)
 }
 func (s *graphqlSubscriptionService) Close() error {
 	return s.port.Close()

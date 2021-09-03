@@ -12,10 +12,14 @@ type EdgeConnectorPort interface {
 	//Connect is called to invoke the implementation specific activities need to create a client connection
 	// to the Libre Central Service.
 	// <connInfo>: a map containing connection information keyed by strings recognized by the implementor
-	Connect(connInfo map[string]interface{}) error
+	Connect(clientId string) error
 
 	//Close is called to close the connection
 	Close() error
+
+	//SendTagChange sends the data for a changed tag to the Libre Central Service
+	//OUTGOING: called from EdgeAgent to send to LibreCentral
+	SendStdMessage(msg domain.StdMessageStruct) error
 
 	//ReadTags takes a list of tag structs and uses the names to fetch their values from the level 2 environment
 	// in an implementation-specific way

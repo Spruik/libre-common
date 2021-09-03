@@ -2,11 +2,12 @@ package drivers
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net"
+	"github.com/Spruik/libre-common/common/drivers/autopaho"
+	"log"
+	"net/url"
+	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +15,7 @@ import (
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	mqtt "github.com/eclipse/paho.golang/paho"
+	paho "github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
@@ -23,7 +24,8 @@ type plcConnectorMQTT struct {
 	//inherit logging
 	libreLogger.LoggingEnabler
 
-	mqttClient     *mqtt.Client
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient     *paho.Client
 	ChangeChannels map[string]chan domain.StdMessageStruct
 
 	topicTemplateList    []string
@@ -68,106 +70,68 @@ func NewPlcConnectorMQTT(configHook string) *plcConnectorMQTT {
 //
 //Connect implements the interface by creating an MQTT client
 func (s *plcConnectorMQTT) Connect() error {
-	var conn net.Conn
-	var useTlsStr string
-	var useTls bool
-	var connAck *mqtt.Connack
 	var err error
 	var server, user, pwd, svcName string
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if useTlsStr, err = s.GetConfigItemWithDefault("MQTT_USE_TLS", "false"); err == nil {
-			if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-				if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
-					svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
-				}
+		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
+			if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
+				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
 			}
 		}
 	}
+	serverUrl,err := url.Parse(server)
 	if err != nil {
 		panic("plcConnectorMQTT failed to find configuration data for MQTT connection")
 	}
-
-	useTls, err = strconv.ParseBool(useTlsStr)
-	if err != nil {
-		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
+	cliCfg := autopaho.ClientConfig{
+		BrokerUrls:        []*url.URL{serverUrl},
+		KeepAlive:         300,
+		ConnectRetryDelay: 10 * time.Second,
+		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
+			fmt.Println("mqtt connection up")
+		},
+		OnConnectError: func(err error) { fmt.Printf("error whilst attempting connection: %s\n", err) },
+		ClientConfig: paho.ClientConfig{
+			ClientID: svcName,
+			Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
+				s.receivedMessageHandler(m)
+			}),
+			OnClientError: func(err error) { fmt.Printf("server requested disconnect: %s\n", err) },
+			OnServerDisconnect: func(d *paho.Disconnect) {
+				if d.Properties != nil {
+					fmt.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+				} else {
+					fmt.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+				}
+			},
+		},
 	}
-	if useTls {
-		if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip == "true" {
-			conn, err = tls.Dial("tcp", server, &tls.Config{InsecureSkipVerify: true})
-			if err != nil {
-				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-				return err
-			}
-		} else {
-			conn, err = tls.Dial("tcp", server, nil)
-			if err != nil {
-				s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-				return err
-			}
-		}
-	} else {
-		conn, err = net.Dial("tcp", server)
-	}
-	//conn, err = net.Dial("tcp", server)
-	if err != nil {
-
-		s.LogErrorf(ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
-		return err
-	}
-
-	client := mqtt.NewClient()
-	client.Conn = conn
-
-	connStruct := &mqtt.Connect{
-		KeepAlive:  300,
-		ClientID:   fmt.Sprintf("%v", svcName),
-		CleanStart: true,
-		Username:   user,
-		Password:   []byte(pwd),
-	}
-
-	if user != "" {
-		connStruct.UsernameFlag = true
-	}
-	if pwd != "" {
-		connStruct.PasswordFlag = true
-	}
-
-	connAck, err = client.Connect(context.Background(), connStruct)
-	if err != nil {
-		s.LogErrorf("Connect return err=%s", err)
-	}
-	if connAck.ReasonCode != 0 {
-		var cid string
-		if s.mqttClient == nil {
-			cid = "nil clientid"
-		} else {
-			cid = s.mqttClient.ClientID
-		}
-		msg := fmt.Sprintf("%s Failed to connect to %s : %d - %s\n", cid, server, connAck.ReasonCode, connAck.Properties.ReasonString)
-		s.LogError("Plc", msg)
-	} else {
-		s.mqttClient = client
-		s.LogInfof("%s Connected to %s\n", s.mqttClient.ClientID, server)
-	}
+	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
+	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
+	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	ctx, _ := context.WithCancel(context.Background())
+	cm, err := autopaho.NewConnection(ctx, cliCfg)
+	err = cm.AwaitConnection(ctx)
+	s.mqttConnectionManager=cm
 	return err
 }
 
 //Close implements the interface by closing the MQTT client
 func (s *plcConnectorMQTT) Close() error {
-	if s.mqttClient == nil {
-		return nil
-	}
-	disconnStruct := &mqtt.Disconnect{
-		Properties: nil,
-		ReasonCode: 0,
-	}
-	err := s.mqttClient.Disconnect(disconnStruct)
-	if err == nil {
-		s.mqttClient = nil
-	}
+	//if s.mqttClient == nil {
+	//	return nil
+	//}
+	//disconnStruct := &paho.Disconnect{
+	//	Properties: nil,
+	//	ReasonCode: 0,
+	//}
+	//err := s.mqttClient.Disconnect(disconnStruct)
+	//if err == nil {
+	//	s.mqttClient = nil
+	//}
 	s.LogInfof("PLC Connection Closed\n")
-	return err
+	//return err
+	return nil
 }
 
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
@@ -192,7 +156,7 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	s.ChangeChannels[clientName] = c
 	//declare the handler for received messages
-	s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.receivedMessageHandler)
+	s.mqttClient.Router = paho.NewSingleHandlerRouter(s.receivedMessageHandler)
 	//need to subscribe to the topics in the changeFilter
 	var topicSet = make(map[string]struct{})
 	for key, val := range changeFilter {
@@ -219,11 +183,11 @@ func (s *plcConnectorMQTT) ListenForPlcTagChanges(c chan domain.StdMessageStruct
 	}
 }
 func (s *plcConnectorMQTT) Unsubscribe(equipmentId *string, topicList []string) error {
-	u := mqtt.Unsubscribe{
+	u := paho.Unsubscribe{
 		Topics:     topicList,
 		Properties: nil,
 	}
-	_, err := s.mqttClient.Unsubscribe(context.Background(), &u)
+	_, err := s.mqttConnectionManager.Unsubscribe(context.Background(), &u)
 	return err
 }
 
@@ -240,30 +204,30 @@ func (s *plcConnectorMQTT) GetTagHistory(startTS time.Time, endTS time.Time, inT
 // support functions
 //
 func (s *plcConnectorMQTT) SubscribeToTopic(topic string) {
-	subPropsStruct := &mqtt.SubscribeProperties{
+	subPropsStruct := &paho.SubscribeProperties{
 		SubscriptionIdentifier: nil,
 		User:                   nil,
 	}
-	var subMap = make(map[string]mqtt.SubscribeOptions)
-	subMap[topic] = mqtt.SubscribeOptions{
+	var subMap = make(map[string]paho.SubscribeOptions)
+	subMap[topic] = paho.SubscribeOptions{
 		QoS:               0,
 		RetainHandling:    0,
 		NoLocal:           false,
 		RetainAsPublished: false,
 	}
-	subStruct := &mqtt.Subscribe{
+	subStruct := &paho.Subscribe{
 		Properties:    subPropsStruct,
 		Subscriptions: subMap,
 	}
-	_, err := s.mqttClient.Subscribe(context.Background(), subStruct)
+	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf("%s mqtt subscribe error : %s\n", s.mqttClient.ClientID, err)
+		s.LogErrorf("mqtt subscribe error : %s\n", err)
 	} else {
-		s.LogInfof("%s mqtt subscribed to : %s\n", s.mqttClient.ClientID, topic)
+		s.LogInfof("mqtt subscribed to : %s\n", topic)
 	}
 }
 
-func (s *plcConnectorMQTT) receivedMessageHandler(m *mqtt.Publish) {
+func (s *plcConnectorMQTT) receivedMessageHandler(m *paho.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
 	tokenMap := s.parseTopic(m.Topic)
 	tagStruct := domain.StdMessageStruct{
