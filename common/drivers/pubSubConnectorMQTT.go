@@ -44,14 +44,52 @@ func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
 func (s *pubSubConnectorMQTT) Connect() error {
 	var err error
 	var server, user, pwd, svcName string
-	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-			if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
-				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
-			}
-		}
+
+	//Grab server address config
+	server, err = s.GetConfigItem("MQTT_SERVER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SERVER: " + server)
+	} else {
+		s.LogError("Config read failed:  MQTT_SERVER" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
+
+	//Grab password
+	pwd, err = s.GetConfigItem("MQTT_PWD")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
+	} else {
+		s.LogError("Config read failed:  MQTT_PWD" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab password
+	user, err = s.GetConfigItem("MQTT_USER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_USER: " + user)
+	} else {
+		s.LogError("Config read failed:  MQTT_USER" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab service name
+	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
+	} else {
+		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
 	serverUrl,err := url.Parse(server)
+	if err == nil {
+		s.LogDebug("Server name parsed without error")
+	} else {
+		s.LogError("Server name not valid" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+
 	if err != nil {
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}

@@ -19,7 +19,7 @@ import (
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	paho "github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 const ERROR_MESSAGE_FAILED_TO_CONNECT = "Failed to connect to %s: %s"
@@ -55,6 +55,7 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 		loggerHook = domain.DEFAULT_LOGGER_NAME
 	}
 	s.SetLoggerConfigHook(loggerHook)
+	s.LogDebugf("Logging initialised")
 	s.topicTemplate, _ = s.GetConfigItemWithDefault("TOPIC_TEMPLATE", "<EQNAME>/Report/<TAGNAME>")
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
@@ -72,16 +73,52 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	var err error
-	var server, user, pwd string
-	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-			user, err = s.GetConfigItem("MQTT_USER")
-		}
+	var server, user, pwd , svcName string
+
+	//Grab server address config
+	server, err = s.GetConfigItem("MQTT_SERVER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SERVER: " + server)
+	} else {
+		s.LogError("Config read failed:  MQTT_SERVER" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
+
+	//Grab password
+	pwd, err = s.GetConfigItem("MQTT_PWD")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
+	} else {
+		s.LogError("Config read failed:  MQTT_PWD" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab password
+	user, err = s.GetConfigItem("MQTT_USER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_USER: " + user)
+	} else {
+		s.LogError("Config read failed:  MQTT_USER" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab service name
+	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
+	} else {
+		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
 	serverUrl,err := url.Parse(server)
-	if err != nil {
-		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
+	if err == nil {
+		s.LogDebug("Server name parsed without error")
+	} else {
+		s.LogError("Server name not valid" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
+
 
 	cliCfg := autopaho.ClientConfig{
 		BrokerUrls:        []*url.URL{serverUrl},
