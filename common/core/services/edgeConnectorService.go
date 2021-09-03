@@ -25,11 +25,14 @@ func GetEdgeConnectorServiceInstance() *edgeConnectorService {
 	return edgeConnectorServiceInstance
 }
 
-func (s *edgeConnectorService) Connect(connInfo map[string]interface{}) error {
-	return s.port.Connect(connInfo)
+func (s *edgeConnectorService) Connect(clientId string) error {
+	return s.port.Connect(clientId)
 }
 func (s *edgeConnectorService) Close() error {
 	return s.port.Close()
+}
+func (s *edgeConnectorService) SendStdMessage(msg domain.StdMessageStruct) error {
+	return s.port.SendStdMessage(msg)
 }
 func (s *edgeConnectorService) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	return s.port.ReadTags(inTagDefs)
