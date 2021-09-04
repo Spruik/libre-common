@@ -11,11 +11,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	paho "github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
