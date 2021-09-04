@@ -92,7 +92,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
-	//Grab password
+	//Grab user
 	user, err = s.GetConfigItem("MQTT_USER")
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_USER: " + user)
@@ -172,7 +172,7 @@ func (s *edgeConnectorMQTT) Close() error {
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *edgeConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	topic := s.buildPublishTopicString(msg)
-	s.LogDebugf("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
+	s.LogDebugf("Sending message for: [%s]  [%+v]", topic, msg)
 	s.send(topic, msg)
 	return nil
 }
@@ -252,9 +252,9 @@ func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) 
 		}
 		pubResp, err := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
 		if err != nil {
-			s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
+			s.LogErrorf("mqtt publish error : [%s] / [%+v\n]", err, pubResp)
 		} else {
-			s.LogInfof("Published to %s", topic)
+			s.LogInfof("Published to: [%s]", topic)
 		}
 	} else {
 		s.LogErrorf("mqtt publish error : failed to marshal the message %+v [%s]\n", message, err)
