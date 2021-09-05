@@ -87,12 +87,37 @@ func (s *plcConnectorOPCUA) Connect() error {
 
 func (s *plcConnectorOPCUA) connect() error {
 	s.connectionContext = context.Background()
+	//Grab server address config
 	endpointStr, err := s.GetConfigItem("ENDPOINT")
-	if err != nil {
-		panic("Failed to find ENDPOINT entry in configuration for plcConnectorOPCUA")
+	if err == nil {
+		s.LogDebug("Config found:  ENDPOINT: " + endpointStr)
+	} else {
+		s.LogError("Config read failed:  ENDPOINT" , err)
+		panic("plcConnectorOPCUA failed to find configuration data for OPCUA connection")
 	}
+
+	s.LogDebug("Retrieving available endpoints from OPC server")
 	endpoints, err := opcua.GetEndpoints(context.Background(), endpointStr)
-	if err != nil {
+	if err == nil {
+		var endPointDesc *ua.EndpointDescription
+		for i := 0 ; i < len(endpoints) ; i++{
+			endPointDesc = endpoints[i]
+			s.LogDebug(">>>>>>>>>>>>>")
+			s.LogDebug("Endpoint EndpointURL            : " + endPointDesc.EndpointURL)
+			s.LogDebug("Endpoint SecurityLevel          : " + fmt.Sprintf("%v", endPointDesc.SecurityLevel))
+			s.LogDebug("Endpoint SecurityMode           : " + endPointDesc.SecurityMode.String())
+			s.LogDebug("Endpoint Server.ProductURI      : " + endPointDesc.Server.ProductURI)
+			s.LogDebug("Endpoint Server.ApplicationURI  : " + endPointDesc.Server.ApplicationURI)
+			s.LogDebug("Endpoint Server.DiscoveryProfileURI: " + endPointDesc.Server.DiscoveryProfileURI)
+			s.LogDebug("Endpoint Server.GatewayServerURI: " + endPointDesc.Server.GatewayServerURI)
+			s.LogDebug("Endpoint Server.ApplicationName : " + endPointDesc.Server.ApplicationName.Text)
+			s.LogDebug("Endpoint TransportProfileURI    : " + endPointDesc.TransportProfileURI)
+			s.LogDebug("Endpoint SecurityPolicyURI      : " + endPointDesc.SecurityPolicyURI)
+			s.LogDebug("<<<<<<<<<<<<<")
+		}
+
+	} else {
+		s.LogError("Error retrieving available endpoints from OPC server: ", err)
 		return (err)
 	}
 
@@ -118,9 +143,9 @@ func (s *plcConnectorOPCUA) connect() error {
 	}
 	err = s.uaClient.Connect(s.connectionContext)
 	if err == nil {
-		s.LogInfof("OPCUA", "Connected to OPCUA server at: %s", endpoint.EndpointURL)
+		s.LogInfo("OPCUA", "Connected to OPCUA server at: " + endpoint.EndpointURL)
 	} else {
-		s.LogError("OPCUA", "Failed in OPCUA connect: ", err)
+		s.LogError("OPCUA", "Failed in OPCUA connect: " , err)
 	}
 
 	return err

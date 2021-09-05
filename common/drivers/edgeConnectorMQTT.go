@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
@@ -19,7 +18,7 @@ import (
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
-	paho "github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 const ERROR_MESSAGE_FAILED_TO_CONNECT = "Failed to connect to %s: %s"
@@ -72,19 +71,67 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	var err error
-	var server, user, pwd string
-	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-			user, err = s.GetConfigItem("MQTT_USER")
-		}
-	}
-	serverUrl,err := url.Parse(server)
-	if err != nil {
+	var server, user, pwd , svcName string
+
+	//Grab server address config
+	server, err = s.GetConfigItem("MQTT_SERVER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SERVER: " + server)
+	} else {
+		s.LogError("Config read failed:  MQTT_SERVER" , err)
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
+	//Grab password
+	pwd, err = s.GetConfigItem("MQTT_PWD")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
+	} else {
+		s.LogError("Config read failed:  MQTT_PWD" , err)
+		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab user
+	user, err = s.GetConfigItem("MQTT_USER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_USER: " + user)
+	} else {
+		s.LogError("Config read failed:  MQTT_USER" , err)
+		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab service name
+	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
+	} else {
+		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	MQTTServerURL, err := url.Parse(server)
+
+	if err == nil {
+		s.LogDebugf("URL Schema (eg:  mqtt:// ) determines the connection type used by Libre")
+		lowerCaseScheme := strings.ToLower(MQTTServerURL.Scheme)
+		switch  lowerCaseScheme{
+		case "mqtt", "tcp":
+			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled" , lowerCaseScheme)
+		case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker" , lowerCaseScheme)
+		default:
+			s.LogErrorf("URL Scheme: [%s] is not supported" , lowerCaseScheme)
+			s.LogErrorf("Supported SECURE schema are: ssl, tls, mqtts, mqtt+ssl, tcps")
+			s.LogErrorf("Other supported schema are: mqtt, tcp")
+			panic("edgeConnectorMQTT server name specifies unsupported URL scheme")
+		}
+	} else {
+		s.LogError("Server name not valid" , err)
+		panic("edgeConnectorMQTT server name not valid")
+	}
+
 	cliCfg := autopaho.ClientConfig{
-		BrokerUrls:        []*url.URL{serverUrl},
+		BrokerUrls:        []*url.URL{MQTTServerURL},
 		KeepAlive:         300,
 		ConnectRetryDelay: 10 * time.Second,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
@@ -136,7 +183,7 @@ func (s *edgeConnectorMQTT) Close() error {
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *edgeConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	topic := s.buildPublishTopicString(msg)
-	s.LogDebugf("Sending message for: %+v as %s=>%s", msg, topic, msg.ItemValue)
+	s.LogDebugf("Sending message for: [%s]  [%+v]", topic, msg)
 	s.send(topic, msg)
 	return nil
 }
@@ -216,9 +263,9 @@ func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) 
 		}
 		pubResp, err := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
 		if err != nil {
-			s.LogErrorf("mqtt publish error : %s / %+v\n", err, pubResp)
+			s.LogErrorf("mqtt publish error : [%s] / [%+v\n]", err, pubResp)
 		} else {
-			s.LogInfof("Published to %s", topic)
+			s.LogInfof("Published to: [%s]", topic)
 		}
 	} else {
 		s.LogErrorf("mqtt publish error : failed to marshal the message %+v [%s]\n", message, err)

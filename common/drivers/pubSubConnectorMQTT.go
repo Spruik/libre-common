@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -44,19 +45,66 @@ func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
 func (s *pubSubConnectorMQTT) Connect() error {
 	var err error
 	var server, user, pwd, svcName string
-	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
-		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
-			if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
-				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
-			}
-		}
-	}
-	serverUrl,err := url.Parse(server)
-	if err != nil {
+
+	//Grab server address config
+	server, err = s.GetConfigItem("MQTT_SERVER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SERVER: " + server)
+	} else {
+		s.LogError("Config read failed:  MQTT_SERVER" , err)
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
+
+	//Grab password
+	pwd, err = s.GetConfigItem("MQTT_PWD")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
+	} else {
+		s.LogError("Config read failed:  MQTT_PWD" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab password
+	user, err = s.GetConfigItem("MQTT_USER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_USER: " + user)
+	} else {
+		s.LogError("Config read failed:  MQTT_USER" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	//Grab service name
+	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
+	} else {
+		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
+	}
+
+	MQTTServerURL, err := url.Parse(server)
+
+	if err == nil {
+		s.LogDebugf("URL Schema (eg:  mqtt:// ) determines the connection type used by Libre")
+		lowerCaseScheme := strings.ToLower(MQTTServerURL.Scheme)
+		switch  lowerCaseScheme{
+		case "mqtt", "tcp":
+			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled" , lowerCaseScheme)
+		case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
+			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker" , lowerCaseScheme)
+		default:
+			s.LogErrorf("URL Scheme: [%s] is not supported" , lowerCaseScheme)
+			s.LogErrorf("Supported SECURE schema are: ssl, tls, mqtts, mqtt+ssl, tcps")
+			s.LogErrorf("Other supported schema are: mqtt, tcp")
+			panic("pubSubConnectorMQTT server name specifies unsupported URL scheme")
+		}
+	} else {
+		s.LogError("Server name not valid" , err)
+		panic("pubSubConnectorMQTT server name not valid")
+	}
+
 	cliCfg := autopaho.ClientConfig{
-		BrokerUrls:        []*url.URL{serverUrl},
+		BrokerUrls:        []*url.URL{MQTTServerURL},
 		KeepAlive:         300,
 		ConnectRetryDelay: 10 * time.Second,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
