@@ -25,8 +25,8 @@ type plcConnectorMQTT struct {
 	libreLogger.LoggingEnabler
 
 	mqttConnectionManager *autopaho.ConnectionManager
-	mqttClient     *paho.Client
-	ChangeChannels map[string]chan domain.StdMessageStruct
+	mqttClient            *paho.Client
+	ChangeChannels        map[string]chan domain.StdMessageStruct
 
 	topicTemplateList    []string
 	topicParseRegExpList []*regexp.Regexp
@@ -79,7 +79,7 @@ func (s *plcConnectorMQTT) Connect() error {
 			}
 		}
 	}
-	serverUrl,err := url.Parse(server)
+	serverUrl, err := url.Parse(server)
 	if err != nil {
 		panic("plcConnectorMQTT failed to find configuration data for MQTT connection")
 	}
@@ -106,13 +106,13 @@ func (s *plcConnectorMQTT) Connect() error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 

@@ -21,10 +21,10 @@ type pubSubConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttConnectionManager     *autopaho.ConnectionManager
-	mqttClient     *paho.Client
-	singleChannel  chan *domain.StdMessage
-	config         map[string]string
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient            *paho.Client
+	singleChannel         chan *domain.StdMessage
+	config                map[string]string
 }
 
 func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
@@ -51,7 +51,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 			}
 		}
 	}
-	serverUrl,err := url.Parse(server)
+	serverUrl, err := url.Parse(server)
 	if err != nil {
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
@@ -78,13 +78,13 @@ func (s *pubSubConnectorMQTT) Connect() error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 
@@ -96,7 +96,7 @@ func (s *pubSubConnectorMQTT) Close() error {
 
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
-	s.LogDebug("Start publishing message to topic "+topic)
+	s.LogDebug("Start publishing message to topic " + topic)
 	pubStruct := &paho.Publish{
 		QoS:        0,
 		Retain:     retain,
@@ -120,7 +120,7 @@ func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[
 	s.singleChannel = c
 	//declare the handler for received messages
 	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
-	for _,val := range topicMap{
+	for _, val := range topicMap {
 		err := s.SubscribeToTopic(val)
 		if err == nil {
 			s.LogInfof("Subscribed to topic %s", val)
@@ -152,7 +152,7 @@ func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string) error {
 	}
 	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf(" mqtt subscribe error : %s\n",  err)
+		s.LogErrorf(" mqtt subscribe error : %s\n", err)
 	} else {
 		s.LogInfof(" mqtt subscribed to : %s\n", topic)
 	}

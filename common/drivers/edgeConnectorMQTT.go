@@ -31,8 +31,8 @@ type edgeConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttConnectionManager     *autopaho.ConnectionManager
-	mqttClient     *paho.Client
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient            *paho.Client
 
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
@@ -78,7 +78,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 			user, err = s.GetConfigItem("MQTT_USER")
 		}
 	}
-	serverUrl,err := url.Parse(server)
+	serverUrl, err := url.Parse(server)
 	if err != nil {
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
@@ -106,13 +106,13 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 
@@ -140,6 +140,7 @@ func (s *edgeConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	s.send(topic, msg)
 	return nil
 }
+
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
 func (s *edgeConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	//TODO - need top figure out what topic/message to publish that will request a read from the PLC

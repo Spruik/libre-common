@@ -266,18 +266,18 @@ func TestCalendarService(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	expectedMessage := domain.StdMessageStruct{
-		OwningAsset:   fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name,
-		OwningAssetId: fakeLibreDataStore.WorkCalendars[0].Equipment[0].Id,
-		ItemName:      "workCalendarCategory",
-		ItemNameExt:   map[string]string{},
-		ItemId:        "",
-		ItemValue:     string(domain.PlannedBusyTime),
-		ItemDataType:  "STRING",
-		TagQuality:    1,
-		Err:           nil,
-		ChangedTimestamp:   time.Now().UTC(),
-		Category:      "TAGDATA",
-		Topic:         fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
+		OwningAsset:      fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name,
+		OwningAssetId:    fakeLibreDataStore.WorkCalendars[0].Equipment[0].Id,
+		ItemName:         "workCalendarCategory",
+		ItemNameExt:      map[string]string{},
+		ItemId:           "",
+		ItemValue:        string(domain.PlannedBusyTime),
+		ItemDataType:     "STRING",
+		TagQuality:       1,
+		Err:              nil,
+		ChangedTimestamp: time.Now().UTC(),
+		Category:         "TAGDATA",
+		Topic:            fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
 	}
 
 	actualMessage := <-stdMessageChan

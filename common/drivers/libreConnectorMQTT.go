@@ -23,8 +23,8 @@ type libreConnectorMQTT struct {
 	//inherit logging
 	libreLogger.LoggingEnabler
 
-	mqttConnectionManager     *autopaho.ConnectionManager
-	mqttClient     *paho.Client
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient            *paho.Client
 
 	topicTemplate   string
 	tagDataCategory string
@@ -62,7 +62,7 @@ func (s *libreConnectorMQTT) Connect() error {
 			}
 		}
 	}
-	serverUrl,err := url.Parse(server)
+	serverUrl, err := url.Parse(server)
 	if err != nil {
 		panic("libreConnectorMQTT failed to find configuration data for MQTT connection")
 	}
@@ -88,13 +88,13 @@ func (s *libreConnectorMQTT) Connect() error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 

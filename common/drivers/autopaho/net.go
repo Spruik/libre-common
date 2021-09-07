@@ -1,21 +1,21 @@
 package autopaho
 
 import (
-"context"
-"crypto/tls"
-"fmt"
-"io"
+	"context"
+	"crypto/tls"
+	"fmt"
+	"io"
 	"log"
 	"net"
-"net/http"
-"net/url"
-"strings"
-"sync"
-"time"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync"
+	"time"
 
-"github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 
-"github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 // Network (establishing connection) functionality for AutoPaho
@@ -33,9 +33,9 @@ func establishBrokerConnection(ctx context.Context, cfg ClientConfig) (*paho.Cli
 			switch strings.ToLower(u.Scheme) {
 			case "mqtt", "tcp", "":
 				cfg.Conn, err = attemptTCPConnection(connectionCtx, u.Host)
-				if err!=nil {
+				if err != nil {
 					log.Println("**************** connected to mqtt")
-				}else{
+				} else {
 					log.Println(err)
 				}
 			case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
@@ -55,7 +55,7 @@ func establishBrokerConnection(ctx context.Context, cfg ClientConfig) (*paho.Cli
 				cp := cfg.buildConnectPacket()
 				var ca *paho.Connack
 				ca, err = cli.Connect(connectionCtx, cp) // will return an error if the connection is unsuccessful (checks the reason code)
-				if err == nil { // Successfully connected
+				if err == nil {                          // Successfully connected
 					log.Println("****************** Connected successfully to MQTT")
 					cancelConnCtx()
 					return cli, ca
