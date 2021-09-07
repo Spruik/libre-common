@@ -12,7 +12,7 @@ import (
 
 type calendarService struct {
 	dataStore      ports.CalendarPort
-	publish        ports.LibreConnectorPort
+	publish        ports.EdgeConnectorPort
 	ticker         *time.Ticker
 	workCalendars  []domain.WorkCalendar
 	eval           chan bool
@@ -29,7 +29,7 @@ type calendarService struct {
 }
 
 // NewCalendarService bootstraps and creates a new Calendar Service
-func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish ports.LibreConnectorPort) *calendarService {
+func NewCalendarService(configHook string, dataStore ports.CalendarPort, publish ports.EdgeConnectorPort) *calendarService {
 	var ret = calendarService{
 		dataStore:      dataStore,
 		publish:        publish,
