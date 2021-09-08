@@ -95,7 +95,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 	opts.SetPingTimeout(2 * time.Second)
 	useTls, err = strconv.ParseBool(useTlsStr)
 	if err != nil {
-		panic(fmt.Sprintf("Bad value for MQTT_USE-SSL in configuration for PlcConnectorMQTT: %s", useTlsStr))
+		panic(fmt.Sprintf("Bad value for MQTT_USE_TLS in configuration for PlcConnectorMQTT: %s", useTlsStr))
 	}
 	if useTls {
 		tlsConfig := newTLSConfig()
