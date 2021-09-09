@@ -17,9 +17,26 @@ type FakeLibreConnector struct {
 	nextError bool
 }
 
-func (libreConnector FakeLibreConnector) Connect() error {
-	return nil
+func (libreConnector FakeLibreConnector) Connect(clientId string) error {
+	panic("implement me")
 }
+
+func (libreConnector FakeLibreConnector) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	panic("implement me")
+}
+
+func (libreConnector FakeLibreConnector) WriteTags(outTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	panic("implement me")
+}
+
+func (libreConnector FakeLibreConnector) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
+	panic("implement me")
+}
+
+func (libreConnector FakeLibreConnector) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
+	panic("implement me")
+}
+
 
 func (libreConnector FakeLibreConnector) Close() error {
 	return nil
