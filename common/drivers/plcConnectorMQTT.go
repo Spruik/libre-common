@@ -3,7 +3,6 @@ package drivers
 import (
 	"context"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
@@ -14,8 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	paho "github.com/eclipse/paho.golang/paho"
+	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/eclipse/paho.golang/paho"
 
 )
 

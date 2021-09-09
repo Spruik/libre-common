@@ -3,3 +3,6 @@ node_modules
 .scannerwork/
 .idea
 .DS*
+
+# Code coverage
+*.out

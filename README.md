@@ -45,6 +45,12 @@ Non time-series data is stored in Dgraph which is a GraphQL native database plat
 
 ![Libre Component Architecture](./docs/LibreComponentArchitecture.png)
 
+## Developing
+
+Prereqisites:
+
+-  golang >= 1.16.x
+
 ## Contributing
 
 For any issue, there are fundamentally three ways an individual can contribute:
