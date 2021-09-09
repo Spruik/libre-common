@@ -3,7 +3,7 @@ package drivers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
 	"log"
 	"net/url"
@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	paho "github.com/eclipse/paho.golang/paho"
@@ -72,18 +71,17 @@ func (s *libreConnectorMQTT) Connect() error {
 		KeepAlive:         300,
 		ConnectRetryDelay: 10 * time.Second,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
-			fmt.Println("mqtt connection up")
+			s.LogInfo("mqtt connection up")
 		},
-		OnConnectError: func(err error) { fmt.Printf("error whilst attempting connection: %s\n", err) },
+		OnConnectError: func(err error) { s.LogInfo("error whilst attempting connection: %s\n", err) },
 		ClientConfig: paho.ClientConfig{
 			ClientID: svcName,
-			//TODO: no router?
-			OnClientError: func(err error) { fmt.Printf("server requested disconnect: %s\n", err) },
+			OnClientError: func(err error) { s.LogInfo("server requested disconnect: %s\n", err) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				if d.Properties != nil {
-					fmt.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+					s.LogInfo("server requested disconnect: %s\n", d.Properties.ReasonString)
 				} else {
-					fmt.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+					s.LogInfo("server requested disconnect; reason code: %d\n", d.ReasonCode)
 				}
 			},
 		},

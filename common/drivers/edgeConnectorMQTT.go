@@ -88,20 +88,20 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 		KeepAlive:         300,
 		ConnectRetryDelay: 10 * time.Second,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
-			fmt.Println("mqtt connection up")
+			s.LogInfo("mqtt connection up")
 		},
-		OnConnectError: func(err error) { fmt.Printf("error whilst attempting connection: %s\n", err) },
+		OnConnectError: func(err error) { s.LogInfo("error whilst attempting connection: %s\n", err) },
 		ClientConfig: paho.ClientConfig{
 			ClientID: clientId,
 			Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
 				s.tagChangeHandler(m)
 			}),
-			OnClientError: func(err error) { fmt.Printf("server requested disconnect: %s\n", err) },
+			OnClientError: func(err error) { s.LogInfo("server requested disconnect: %s\n", err) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				if d.Properties != nil {
-					fmt.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+					s.LogInfo("server requested disconnect: %s\n", d.Properties.ReasonString)
 				} else {
-					fmt.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+					s.LogInfo("server requested disconnect; reason code: %d\n", d.ReasonCode)
 				}
 			},
 		},
@@ -179,7 +179,6 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
-	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
