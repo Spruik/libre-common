@@ -250,7 +250,7 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
 	jsonBytes, err := json.Marshal(message)
 	retain := false
-	if message.Category == "TAGDATA" {
+	if message.Category == "TAGDATA" || message.Category == "EVENT" {
 		retain = true
 	}
 	if err == nil {
@@ -329,7 +329,6 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *paho.Publish) {
-	//	s.LogDebug("BEGIN tagChangeHandler")
 
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)
