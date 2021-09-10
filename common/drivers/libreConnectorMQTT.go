@@ -118,15 +118,15 @@ func (s *libreConnectorMQTT) Connect() error {
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			s.LogInfo("mqtt connection up")
 		},
-		OnConnectError: func(err error) { s.LogInfo("error whilst attempting connection: %s\n", err) },
+		OnConnectError: func(err error) { s.LogError("error whilst attempting connection: %s\n", err) },
 		ClientConfig: paho.ClientConfig{
 			ClientID: svcName,
-			OnClientError: func(err error) { s.LogInfo("server requested disconnect: %s\n", err) },
+			OnClientError: func(err error) { s.LogError("server requested disconnect: %s\n", err) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				if d.Properties != nil {
-					s.LogInfo("server requested disconnect: %s\n", d.Properties.ReasonString)
+					s.LogWarnf("server requested disconnect: %s\n", d.Properties.ReasonString)
 				} else {
-					s.LogInfo("server requested disconnect; reason code: %d\n", d.ReasonCode)
+					s.LogWarnf("server requested disconnect; reason code: %d\n", d.ReasonCode)
 				}
 			},
 		},
