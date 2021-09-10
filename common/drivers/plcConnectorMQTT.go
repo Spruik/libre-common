@@ -3,7 +3,11 @@ package drivers
 import (
 	"context"
 	"fmt"
+	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	"github.com/eclipse/paho.golang/paho"
 	"log"
 	"net/url"
 	"os"
@@ -11,10 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"github.com/Spruik/libre-common/common/core/domain"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
-	"github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
@@ -87,20 +87,20 @@ func (s *plcConnectorMQTT) Connect() error {
 		KeepAlive:         300,
 		ConnectRetryDelay: 10 * time.Second,
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
-			fmt.Println("mqtt connection up")
+			s.LogInfo("mqtt connection up")
 		},
-		OnConnectError: func(err error) { fmt.Printf("error whilst attempting connection: %s\n", err) },
+		OnConnectError: func(err error) { s.LogError("error whilst attempting connection: %s\n", err) },
 		ClientConfig: paho.ClientConfig{
 			ClientID: svcName,
 			Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
 				s.receivedMessageHandler(m)
 			}),
-			OnClientError: func(err error) { fmt.Printf("server requested disconnect: %s\n", err) },
+			OnClientError: func(err error) { s.LogError("server requested disconnect: %s\n", err) },
 			OnServerDisconnect: func(d *paho.Disconnect) {
 				if d.Properties != nil {
-					fmt.Printf("server requested disconnect: %s\n", d.Properties.ReasonString)
+					s.LogWarnf("server requested disconnect: %s\n", d.Properties.ReasonString)
 				} else {
-					fmt.Printf("server requested disconnect; reason code: %d\n", d.ReasonCode)
+					s.LogWarnf("server requested disconnect; reason code: %d\n", d.ReasonCode)
 				}
 			},
 		},
