@@ -3,12 +3,13 @@ module github.com/Spruik/libre-common
 go 1.16
 
 require (
+	github.com/DrmagicE/gmqtt v0.4.1
 	github.com/PaesslerAG/gval v1.1.1
 	github.com/Spruik/libre-configuration v0.1.0
 	github.com/Spruik/libre-logging v0.1.0
 	github.com/eclipse/paho.golang v0.10.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.3.0
 	github.com/gopcua/opcua v0.2.0-rc2
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2

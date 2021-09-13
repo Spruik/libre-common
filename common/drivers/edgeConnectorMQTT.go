@@ -140,7 +140,9 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 		OnConnectionUp: func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
 			s.LogInfo("mqtt connection up")
 		},
-		OnConnectError: func(err error) { s.LogError("error whilst attempting connection: %s\n", err) },
+		OnConnectError: func(err error) {
+			s.LogErrorf("error whilst attempting connection: %s\n", err)
+		},
 		ClientConfig: paho.ClientConfig{
 			ClientID: clientId,
 			Router: paho.NewSingleHandlerRouter(func(m *paho.Publish) {
@@ -159,7 +161,11 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 
 	tlsConfig := tls.Config{}
 	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip != "" {
-		tlsConfig.InsecureSkipVerify = true
+		skip = strings.ToLower(skip)
+		skip = strings.Trim(skip, " ")
+		if skip == "true" {
+			tlsConfig.InsecureSkipVerify = true
+		}
 	}
 
 	cliCfg.TlsCfg = &tlsConfig
@@ -167,17 +173,20 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
 	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
-	cm, err := autopaho.NewConnection(ctx, cliCfg)
+	s.mqttConnectionManager, err = autopaho.NewConnection(ctx, cliCfg)
 	if err != nil {
 		s.LogErrorf("EdgeConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
 	}
-	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager = cm
+	err = s.mqttConnectionManager.AwaitConnection(ctx)
 	return err
 }
 
 //Close implements the interface by closing the MQTT client
 func (s *edgeConnectorMQTT) Close() error {
+
+	if s.mqttConnectionManager != nil {
+		return s.mqttConnectionManager.Disconnect(context.Background())
+	}
 	//if s.mqttClient == nil {
 	//	return nil
 	//}

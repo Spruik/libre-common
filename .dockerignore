@@ -9,3 +9,6 @@
 !/README.md
 !/src/**
 !/docs/**
+
+# Test Configuration generated in test cases
+test.json
