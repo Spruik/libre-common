@@ -2,12 +2,8 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
-	"github.com/Spruik/libre-common/common/core/domain"
-	"github.com/Spruik/libre-common/common/drivers/autopaho"
-	libreConfig "github.com/Spruik/libre-configuration"
-	libreLogger "github.com/Spruik/libre-logging"
-	"github.com/eclipse/paho.golang/paho"
 	"log"
 	"net/url"
 	"os"
@@ -15,6 +11,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/Spruik/libre-common/common/drivers/autopaho"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 type plcConnectorMQTT struct {
@@ -24,8 +26,8 @@ type plcConnectorMQTT struct {
 	libreLogger.LoggingEnabler
 
 	mqttConnectionManager *autopaho.ConnectionManager
-	mqttClient     *paho.Client
-	ChangeChannels map[string]chan domain.StdMessageStruct
+	mqttClient            *paho.Client
+	ChangeChannels        map[string]chan domain.StdMessageStruct
 
 	topicTemplateList    []string
 	topicParseRegExpList []*regexp.Regexp
@@ -74,11 +76,11 @@ func (s *plcConnectorMQTT) Connect() error {
 	if server, err = s.GetConfigItem("MQTT_SERVER"); err == nil {
 		if pwd, err = s.GetConfigItem("MQTT_PWD"); err == nil {
 			if user, err = s.GetConfigItem("MQTT_USER"); err == nil {
-				svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+				svcName, _ = s.GetConfigItem("MQTT_SVC_NAME")
 			}
 		}
 	}
-	serverUrl,err := url.Parse(server)
+	serverUrl, err := url.Parse(server)
 	if err != nil {
 		panic("plcConnectorMQTT failed to find configuration data for MQTT connection")
 	}
@@ -105,13 +107,22 @@ func (s *plcConnectorMQTT) Connect() error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+
+	tlsConfig := tls.Config{}
+	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip != "" {
+		tlsConfig.InsecureSkipVerify = true
+	}
+	cliCfg.TlsCfg = &tlsConfig
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
+	if err != nil {
+		s.LogErrorf("PlcConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
+	}
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 

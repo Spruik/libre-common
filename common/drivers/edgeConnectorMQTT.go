@@ -2,8 +2,10 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
 
 	"log"
@@ -21,7 +23,8 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 )
 
-const ERROR_MESSAGE_FAILED_TO_CONNECT = "Failed to connect to %s: %s"
+// ErrorMessageFailedToConnect is a common error message when failing to connect
+const ErrorMessageFailedToConnect = "Failed to connect to %s: %s"
 
 type edgeConnectorMQTT struct {
 	//inherit logging functions
@@ -30,8 +33,8 @@ type edgeConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttConnectionManager     *autopaho.ConnectionManager
-	mqttClient     *paho.Client
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient            *paho.Client
 
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
@@ -71,14 +74,14 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 //Connect implements the interface by creating an MQTT client
 func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	var err error
-	var server, user, pwd , svcName string
+	var server, user, pwd, svcName string
 
 	//Grab server address config
 	server, err = s.GetConfigItem("MQTT_SERVER")
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_SERVER: " + server)
 	} else {
-		s.LogError("Config read failed:  MQTT_SERVER" , err)
+		s.LogError("Config read failed:  MQTT_SERVER", err)
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -87,7 +90,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
 	} else {
-		s.LogError("Config read failed:  MQTT_PWD" , err)
+		s.LogError("Config read failed:  MQTT_PWD", err)
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -96,7 +99,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_USER: " + user)
 	} else {
-		s.LogError("Config read failed:  MQTT_USER" , err)
+		s.LogError("Config read failed:  MQTT_USER", err)
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -105,7 +108,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
 	} else {
-		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		s.LogError("Config read failed:  MQTT_SVC_NAME", err)
 		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -114,19 +117,19 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	if err == nil {
 		s.LogDebugf("URL Schema (eg:  mqtt:// ) determines the connection type used by Libre")
 		lowerCaseScheme := strings.ToLower(MQTTServerURL.Scheme)
-		switch  lowerCaseScheme{
+		switch lowerCaseScheme {
 		case "mqtt", "tcp":
-			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled" , lowerCaseScheme)
+			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled", lowerCaseScheme)
 		case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
-			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker" , lowerCaseScheme)
+			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker", lowerCaseScheme)
 		default:
-			s.LogErrorf("URL Scheme: [%s] is not supported" , lowerCaseScheme)
+			s.LogErrorf("URL Scheme: [%s] is not supported", lowerCaseScheme)
 			s.LogErrorf("Supported SECURE schema are: ssl, tls, mqtts, mqtt+ssl, tcps")
 			s.LogErrorf("Other supported schema are: mqtt, tcp")
 			panic("edgeConnectorMQTT server name specifies unsupported URL scheme")
 		}
 	} else {
-		s.LogError("Server name not valid" , err)
+		s.LogError("Server name not valid", err)
 		panic("edgeConnectorMQTT server name not valid")
 	}
 
@@ -153,13 +156,23 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+
+	tlsConfig := tls.Config{}
+	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip != "" {
+		tlsConfig.InsecureSkipVerify = true
+	}
+
+	cliCfg.TlsCfg = &tlsConfig
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
+	if err != nil {
+		s.LogErrorf("EdgeConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
+	}
 	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager = cm
 	return err
 }
 
@@ -187,6 +200,7 @@ func (s *edgeConnectorMQTT) SendStdMessage(msg domain.StdMessageStruct) error {
 	s.send(topic, msg)
 	return nil
 }
+
 //ReadTags implements the interface by generating an MQTT message to the PLC, waiting for the result
 func (s *edgeConnectorMQTT) ReadTags(inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	//TODO - need top figure out what topic/message to publish that will request a read from the PLC

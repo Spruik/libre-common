@@ -94,7 +94,7 @@ func (s *libreConnectorMQTTv3) Connect() error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Plc", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+		s.LogErrorf("Plc", ErrorMessageFailedToConnect, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)
