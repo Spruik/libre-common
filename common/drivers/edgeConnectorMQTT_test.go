@@ -204,26 +204,27 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 				fmt.Printf("%s broker stopper complete\n", testCase.Name)
 			}()
 		}
+		errChan := make(chan error)
 
-		// Timeout
 		go func() {
-			tc := testCase
-			time.Sleep(time.Second * 10)
-			edgeConnectorDriver.Close()
-			if !tc.IsTimeoutError && thisBrokerRunning && edgeConnectorDriver != nil {
-				t.Errorf("test case %s failed due to connection timeout", tc.Name)
-				t.Fail()
-			}
+			errChan <- edgeConnectorDriver.Connect("test")
 		}()
 
-		// Start edgeConnectorDriver to Connect
-		err := edgeConnectorDriver.Connect("test")
-		if testCase.IsError && err == nil {
-			t.Errorf("test TestEdgeConnectorMQTT %s expected to failed but didn't", testCase.Name)
-			t.Fail()
-		} else if !testCase.IsError && err != nil {
-			t.Errorf("test TestEdgeConnectorMQTT %s didn't expect to fail; got %s", testCase.Name, err)
-			t.Fail()
+		select {
+		case err := <-errChan:
+			if testCase.IsError && err == nil {
+				t.Errorf("test TestEdgeConnectorMQTT %s expected to failed but didn't", testCase.Name)
+				t.Fail()
+			} else if !testCase.IsError && err != nil {
+				t.Errorf("test TestEdgeConnectorMQTT %s didn't expect to fail; got %s", testCase.Name, err)
+				t.Fail()
+			}
+		case <-time.After(time.Second * 20):
+			edgeConnectorDriver.Close()
+			if !testCase.IsTimeoutError && thisBrokerRunning && edgeConnectorDriver != nil {
+				t.Errorf("test case %s failed due to connection timeout", testCase.Name)
+				t.Fail()
+			}
 		}
 
 		// Do anything else with the EdgeConnector Here
