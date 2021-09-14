@@ -109,7 +109,7 @@ func (s *plcConnectorMQTT) Connect() error {
 	}
 
 	tlsConfig := tls.Config{}
-	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip != "" {
+	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && strings.EqualFold(skip, "true") {
 		tlsConfig.InsecureSkipVerify = true
 	}
 	cliCfg.TlsCfg = &tlsConfig

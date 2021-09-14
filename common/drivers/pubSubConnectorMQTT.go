@@ -2,17 +2,19 @@ package drivers
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
-	"github.com/Spruik/libre-common/common/core/domain"
-	"github.com/Spruik/libre-common/common/drivers/autopaho"
-	libreConfig "github.com/Spruik/libre-configuration"
-	"github.com/Spruik/libre-logging"
-	"github.com/eclipse/paho.golang/paho"
 	"log"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Spruik/libre-common/common/core/domain"
+	"github.com/Spruik/libre-common/common/drivers/autopaho"
+	libreConfig "github.com/Spruik/libre-configuration"
+	libreLogger "github.com/Spruik/libre-logging"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 type pubSubConnectorMQTT struct {
@@ -21,10 +23,10 @@ type pubSubConnectorMQTT struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	mqttConnectionManager     *autopaho.ConnectionManager
-	mqttClient     *paho.Client
-	singleChannel  chan *domain.StdMessage
-	config         map[string]string
+	mqttConnectionManager *autopaho.ConnectionManager
+	mqttClient            *paho.Client
+	singleChannel         chan *domain.StdMessage
+	config                map[string]string
 }
 
 func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
@@ -50,7 +52,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_SERVER: " + server)
 	} else {
-		s.LogError("Config read failed:  MQTT_SERVER" , err)
+		s.LogError("Config read failed:  MQTT_SERVER", err)
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -59,7 +61,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
 	} else {
-		s.LogError("Config read failed:  MQTT_PWD" , err)
+		s.LogError("Config read failed:  MQTT_PWD", err)
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -68,7 +70,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_USER: " + user)
 	} else {
-		s.LogError("Config read failed:  MQTT_USER" , err)
+		s.LogError("Config read failed:  MQTT_USER", err)
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -77,7 +79,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if err == nil {
 		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
 	} else {
-		s.LogError("Config read failed:  MQTT_SVC_NAME" , err)
+		s.LogError("Config read failed:  MQTT_SVC_NAME", err)
 		panic("pubSubConnectorMQTT failed to find configuration data for MQTT connection")
 	}
 
@@ -86,19 +88,19 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	if err == nil {
 		s.LogDebugf("URL Schema (eg:  mqtt:// ) determines the connection type used by Libre")
 		lowerCaseScheme := strings.ToLower(MQTTServerURL.Scheme)
-		switch  lowerCaseScheme{
+		switch lowerCaseScheme {
 		case "mqtt", "tcp":
-			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled" , lowerCaseScheme)
+			s.LogDebugf("URL Scheme: [%s] requires INSECURE connection, Libre edge will not connect if the MQTT broker has TLS enabled", lowerCaseScheme)
 		case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
-			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker" , lowerCaseScheme)
+			s.LogDebugf("URL Scheme: [%s] requires SECURE connection, TLS is required at the MQTT broker", lowerCaseScheme)
 		default:
-			s.LogErrorf("URL Scheme: [%s] is not supported" , lowerCaseScheme)
+			s.LogErrorf("URL Scheme: [%s] is not supported", lowerCaseScheme)
 			s.LogErrorf("Supported SECURE schema are: ssl, tls, mqtts, mqtt+ssl, tcps")
 			s.LogErrorf("Other supported schema are: mqtt, tcp")
 			panic("pubSubConnectorMQTT server name specifies unsupported URL scheme")
 		}
 	} else {
-		s.LogError("Server name not valid" , err)
+		s.LogError("Server name not valid", err)
 		panic("pubSubConnectorMQTT server name not valid")
 	}
 
@@ -125,13 +127,23 @@ func (s *pubSubConnectorMQTT) Connect() error {
 			},
 		},
 	}
-	cliCfg.Debug = log.New(os.Stdout,"autoPaho",1)
-	cliCfg.PahoDebug = log.New(os.Stdout,"paho",1)
-	cliCfg.SetUsernamePassword(user,[]byte(pwd))
+
+	tlsConfig := tls.Config{}
+	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && strings.EqualFold(skip, "true") {
+		tlsConfig.InsecureSkipVerify = true
+		s.LogDebug("pubSubConnector set InsecureSkipVerify = true")
+	}
+
+	cliCfg.TlsCfg = &tlsConfig
+	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
+	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.SetUsernamePassword(user, []byte(pwd))
 	ctx, _ := context.WithCancel(context.Background())
-	cm, err := autopaho.NewConnection(ctx, cliCfg)
-	err = cm.AwaitConnection(ctx)
-	s.mqttConnectionManager=cm
+	s.mqttConnectionManager, err = autopaho.NewConnection(ctx, cliCfg)
+	if err != nil {
+		s.LogErrorf("pubSubConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
+	}
+	err = s.mqttConnectionManager.AwaitConnection(ctx)
 	return err
 }
 
@@ -143,7 +155,7 @@ func (s *pubSubConnectorMQTT) Close() error {
 
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
 func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
-	s.LogDebug("Start publishing message to topic "+topic)
+	s.LogDebug("Start publishing message to topic " + topic)
 	pubStruct := &paho.Publish{
 		QoS:        0,
 		Retain:     retain,
@@ -167,7 +179,7 @@ func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[
 	s.singleChannel = c
 	//declare the handler for received messages
 	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
-	for _,val := range topicMap{
+	for _, val := range topicMap {
 		err := s.SubscribeToTopic(val)
 		if err == nil {
 			s.LogInfof("Subscribed to topic %s", val)
@@ -199,7 +211,7 @@ func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string) error {
 	}
 	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
 	if err != nil {
-		s.LogErrorf(" mqtt subscribe error : %s\n",  err)
+		s.LogErrorf(" mqtt subscribe error : %s\n", err)
 	} else {
 		s.LogInfof(" mqtt subscribed to : %s\n", topic)
 	}
