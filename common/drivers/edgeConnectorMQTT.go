@@ -160,12 +160,9 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	}
 
 	tlsConfig := tls.Config{}
-	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && skip != "" {
-		skip = strings.ToLower(skip)
-		skip = strings.Trim(skip, " ")
-		if skip == "true" {
-			tlsConfig.InsecureSkipVerify = true
-		}
+	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && strings.EqualFold(skip, "true") {
+		tlsConfig.InsecureSkipVerify = true
+		s.LogDebug("set InsecureSkipVerify = true")
 	}
 
 	cliCfg.TlsCfg = &tlsConfig
