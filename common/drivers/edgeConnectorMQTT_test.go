@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -62,7 +63,7 @@ type EdgeConnectorMqttTestCase struct {
 // EdgeConnectorMqttTestCases is a list of test cases to execute
 var EdgeConnectorMqttTestCases = []EdgeConnectorMqttTestCase{
 	{
-		Name: "Simple Server TLS on 8883 with Certs",
+		Name: "TLS Server on 8883 with Certs and same Certs",
 		EdgeConnectorMqttConfig: ApplyDefaultConfig(EdgeConnectorTestConfig{
 			EdgeConnectorConfig: EdgeConnectorConfig{
 				InsecureSkipVerify: "true",
@@ -79,7 +80,7 @@ var EdgeConnectorMqttTestCases = []EdgeConnectorMqttTestCase{
 		StartMqttServer: true,
 	},
 	{
-		Name: "Simple Server TLS on 8883 with Skip Verify",
+		Name: "TLS Server on 8883 with Skip Verify and different Certs",
 		EdgeConnectorMqttConfig: ApplyDefaultConfig(EdgeConnectorTestConfig{
 			EdgeConnectorConfig: EdgeConnectorConfig{
 				InsecureSkipVerify: "true",
@@ -96,7 +97,7 @@ var EdgeConnectorMqttTestCases = []EdgeConnectorMqttTestCase{
 		StartMqttServer: true,
 	},
 	{
-		Name: "Simple Server TLS on 8883 without Skip Verify - expect failure",
+		Name: "TLS Server on 8883 with different certs - expect failure",
 		EdgeConnectorMqttConfig: ApplyDefaultConfig(EdgeConnectorTestConfig{
 			EdgeConnectorConfig: EdgeConnectorConfig{
 				InsecureSkipVerify: "false",
@@ -118,6 +119,7 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 
 	for _, testCase := range EdgeConnectorMqttTestCases {
 		t.Logf("INFO | %s executing testcase", testCase.Name)
+		thisBrokerRunning := false
 		// Create a temp config file `test.json`
 		file, _ := json.MarshalIndent(testCase.EdgeConnectorMqttConfig, "", " ")
 		_ = ioutil.WriteFile("test.json", file, 0644)
@@ -130,10 +132,10 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 		edgeConnectorDriver := NewEdgeConnectorMQTT("libreEdgeConnector")
 
 		// Handle Broker Commands
-		var runBroker chan bool
+		runBroker := make(chan bool)
 
 		if testCase.StartMqttServer {
-			runBroker = make(chan bool)
+			ctx, _ := context.WithCancel(context.Background())
 			// Create a listener
 			var ln net.Listener
 			var err error
@@ -174,47 +176,45 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 			_ = s.RetainedService()
 			_ = s.Publisher()
 
+			// Listen to Commands
 			breakout := false
 			go func() {
+				defer s.Stop(ctx)
+				t.Logf("INFO | %s Listenning to broker commands", testCase.Name)
+				// Start Broker
+				go func() {
+					thisBrokerRunning = true
+					err = s.Run()
+					thisBrokerRunning = false
+					if err != nil {
+						panic(err)
+					}
+					fmt.Printf("%s broker starter complete\n", testCase.Name)
+				}()
 				for !breakout {
 					switch <-runBroker {
 					case false:
+						t.Logf("INFO | %s Stop Broker", testCase.Name)
 						if s != nil {
-							s.Stop(context.Background())
+							s.Stop(ctx)
 						}
 						breakout = true
-					case true:
-						if s != nil {
-							go func() {
-								err := s.Run()
-								if err != nil {
-									panic(err)
-								}
-							}()
-						}
 					}
 				}
-				t.Logf("INFO | %s Finished with MQTT Broker", testCase.Name)
+				fmt.Printf("%s broker stopper complete\n", testCase.Name)
 			}()
 		}
 
 		// Timeout
 		go func() {
-			time.Sleep(time.Second * 3)
+			tc := testCase
+			time.Sleep(time.Second * 10)
 			edgeConnectorDriver.Close()
-			if testCase.StartMqttServer {
-				runBroker <- false
-			}
-			if !testCase.IsTimeoutError {
-				t.Errorf("test case %s failed due to connection timeout", testCase.Name)
+			if !tc.IsTimeoutError && thisBrokerRunning && edgeConnectorDriver != nil {
+				t.Errorf("test case %s failed due to connection timeout", tc.Name)
 				t.Fail()
 			}
 		}()
-
-		// Start Broker (if enabled)
-		if testCase.StartMqttServer {
-			runBroker <- true
-		}
 
 		// Start edgeConnectorDriver to Connect
 		err := edgeConnectorDriver.Connect("test")
@@ -234,13 +234,12 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 		edgeConnectorDriver.Close()
 
 		// Stop Broker (if running)
-		if testCase.StartMqttServer {
-			runBroker <- false
-		}
+		runBroker <- false
 
 		defer os.Remove("test.json")
 	}
 	defer os.Remove("test.json")
+
 }
 
 // ApplyDefaultConfig just sets anything requried to a sensible default
