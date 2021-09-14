@@ -106,7 +106,7 @@ func (s *edgeConnectorMQTTv3) Connect(connInfo map[string]interface{}) error {
 	}
 	if err != nil {
 
-		s.LogErrorf("Edge", ERROR_MESSAGE_FAILED_TO_CONNECT, server, err)
+		s.LogErrorf("Edge", ErrorMessageFailedToConnect, server, err)
 		return err
 	}
 	client := mqtt.NewClient(opts)

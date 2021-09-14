@@ -37,7 +37,6 @@ func (libreConnector FakeLibreConnector) GetTagHistory(startTS time.Time, endTS 
 	panic("implement me")
 }
 
-
 func (libreConnector FakeLibreConnector) Close() error {
 	return nil
 }
@@ -282,35 +281,72 @@ func TestCalendarService(t *testing.T) {
 	}
 	time.Sleep(20 * time.Millisecond)
 
-	expectedMessage := domain.StdMessageStruct{
-		OwningAsset:   fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name,
-		OwningAssetId: fakeLibreDataStore.WorkCalendars[0].Equipment[0].Id,
-		ItemName:      "workCalendarCategory",
-		ItemNameExt:   map[string]string{},
-		ItemId:        "",
-		ItemValue:     string(domain.PlannedBusyTime),
-		ItemDataType:  "STRING",
-		TagQuality:    1,
-		Err:           nil,
-		ChangedTimestamp:   time.Now().UTC(),
-		Category:      "TAGDATA",
-		Topic:         fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
+	expectedCategoryMessage := domain.StdMessageStruct{
+		OwningAsset:      fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name,
+		OwningAssetId:    fakeLibreDataStore.WorkCalendars[0].Equipment[0].Id,
+		ItemName:         "workCalendarCategory",
+		ItemNameExt:      map[string]string{},
+		ItemId:           "",
+		ItemValue:        string(domain.PlannedBusyTime),
+		ItemDataType:     "STRING",
+		TagQuality:       1,
+		Err:              nil,
+		ChangedTimestamp: time.Now().UTC(),
+		Category:         "TAGDATA",
+		Topic:            fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
 	}
 
-	actualMessage := <-stdMessageChan
-
-	if expectedMessage.OwningAsset != actualMessage.OwningAsset ||
-		expectedMessage.OwningAssetId != actualMessage.OwningAssetId ||
-		expectedMessage.ItemName != actualMessage.ItemName ||
-		expectedMessage.ItemId != actualMessage.ItemId ||
-		expectedMessage.ItemValue != actualMessage.ItemValue ||
-		expectedMessage.ItemDataType != actualMessage.ItemDataType ||
-		expectedMessage.TagQuality != actualMessage.TagQuality ||
-		expectedMessage.Err != actualMessage.Err ||
-		expectedMessage.Category != actualMessage.Category ||
-		expectedMessage.Topic != actualMessage.Topic {
-		t.Errorf("TestCalendarService failed comparing StdMessageStructs want %v; got %v", expectedMessage, actualMessage)
+	expectedEntryMessage := domain.StdMessageStruct{
+		OwningAsset:      fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name,
+		OwningAssetId:    fakeLibreDataStore.WorkCalendars[0].Equipment[0].Id,
+		ItemName:         "workCalendarEntry",
+		ItemNameExt:      map[string]string{},
+		ItemId:           "",
+		ItemValue:        "Shift A",
+		ItemDataType:     "STRING",
+		TagQuality:       1,
+		Err:              nil,
+		ChangedTimestamp: time.Now().UTC(),
+		Category:         "TAGDATA",
+		Topic:            fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarEntry",
 	}
+
+	category := true
+	entry := true
+
+	for category || entry {
+		actualMessage := <-stdMessageChan
+		if actualMessage.ItemName == "workCalendarCategory" {
+			if expectedCategoryMessage.OwningAsset != actualMessage.OwningAsset ||
+				expectedCategoryMessage.OwningAssetId != actualMessage.OwningAssetId ||
+				expectedCategoryMessage.ItemName != actualMessage.ItemName ||
+				expectedCategoryMessage.ItemId != actualMessage.ItemId ||
+				expectedCategoryMessage.ItemValue != actualMessage.ItemValue ||
+				expectedCategoryMessage.ItemDataType != actualMessage.ItemDataType ||
+				expectedCategoryMessage.TagQuality != actualMessage.TagQuality ||
+				expectedCategoryMessage.Err != actualMessage.Err ||
+				expectedCategoryMessage.Category != actualMessage.Category ||
+				expectedCategoryMessage.Topic != actualMessage.Topic {
+				t.Errorf("TestCalendarService failed comparing StdMessageStructs want %v; got %v", expectedCategoryMessage, actualMessage)
+			}
+			category = false
+		} else if actualMessage.ItemName == "workCalendarEntry" {
+			if expectedEntryMessage.OwningAsset != actualMessage.OwningAsset ||
+				expectedEntryMessage.OwningAssetId != actualMessage.OwningAssetId ||
+				expectedEntryMessage.ItemName != actualMessage.ItemName ||
+				expectedEntryMessage.ItemId != actualMessage.ItemId ||
+				expectedEntryMessage.ItemValue != actualMessage.ItemValue ||
+				expectedEntryMessage.ItemDataType != actualMessage.ItemDataType ||
+				expectedEntryMessage.TagQuality != actualMessage.TagQuality ||
+				expectedEntryMessage.Err != actualMessage.Err ||
+				expectedEntryMessage.Category != actualMessage.Category ||
+				expectedEntryMessage.Topic != actualMessage.Topic {
+				t.Errorf("TestCalendarService failed comparing StdMessageStructs want %v; got %v", expectedEntryMessage, actualMessage)
+			}
+			entry = false
+		}
+	}
+
 	// Start it again
 	err = service.Start()
 	if err != nil {

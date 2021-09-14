@@ -6,3 +6,6 @@ node_modules
 
 # Code coverage
 *.out
+
+# Test Configuration generated in test cases
+test.json
