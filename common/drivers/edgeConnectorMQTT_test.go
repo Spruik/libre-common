@@ -222,7 +222,7 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 				t.Errorf("test TestEdgeConnectorMQTT %s didn't expect to fail; got %s", testCase.Name, err)
 				t.Fail()
 			}
-		case <-time.After(time.Second * 3):
+		case <-time.After(time.Second * 10):
 			edgeConnectorDriver.Close()
 			if !testCase.IsTimeoutError && thisBrokerRunning && edgeConnectorDriver != nil {
 				t.Errorf("test case %s failed due to connection timeout", testCase.Name)
