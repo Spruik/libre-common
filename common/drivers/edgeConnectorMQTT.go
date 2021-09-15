@@ -368,12 +368,14 @@ func (s *edgeConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 	}
 }
 
+// EdgeLibreLoggerAdapter is a helper struct for injecting the libre logger format into the paho libraries
 type EdgeLibreLoggerAdapter struct {
 	section string
 	level   string
 	logger  *libreLogger.LoggingEnabler
 }
 
+// Println prints a LibreLogger message
 func (l EdgeLibreLoggerAdapter) Println(v ...interface{}) {
 	msg := fmt.Sprint(v...)
 	if l.level == "DEBUG" {
@@ -383,6 +385,7 @@ func (l EdgeLibreLoggerAdapter) Println(v ...interface{}) {
 	}
 }
 
+// Printf prints a LibreLogger message
 func (l EdgeLibreLoggerAdapter) Printf(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	if l.level == "DEBUG" {
@@ -392,6 +395,7 @@ func (l EdgeLibreLoggerAdapter) Printf(format string, v ...interface{}) {
 	}
 }
 
+// Create a new paho.Logger that uses the LibreLogger library
 func (s *edgeConnectorMQTT) newPahoLogger(section, level string) paho.Logger {
 	return EdgeLibreLoggerAdapter{
 		section: section,

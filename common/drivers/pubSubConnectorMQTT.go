@@ -16,38 +16,6 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 )
 
-type PubSubLibreLoggerAdapter struct {
-	section string
-	level   string
-	logger  *libreLogger.LoggingEnabler
-}
-
-func (l PubSubLibreLoggerAdapter) Println(v ...interface{}) {
-	msg := fmt.Sprint(v...)
-	if l.level == "DEBUG" {
-		l.logger.LogDebug(l.section + " | " + msg)
-	} else {
-		l.logger.LogInfo(l.section + " | " + msg)
-	}
-}
-
-func (l PubSubLibreLoggerAdapter) Printf(format string, v ...interface{}) {
-	msg := fmt.Sprintf(format, v...)
-	if l.level == "DEBUG" {
-		l.logger.LogDebug(l.section + " | " + msg)
-	} else {
-		l.logger.LogInfo(l.section + " | " + msg)
-	}
-}
-
-func (s *pubSubConnectorMQTT) newPahoLogger(section, level string) paho.Logger {
-	return PubSubLibreLoggerAdapter{
-		section: section,
-		level:   level,
-		logger:  &s.LoggingEnabler,
-	}
-}
-
 type pubSubConnectorMQTT struct {
 	//inherit logging functions
 	libreLogger.LoggingEnabler
@@ -262,4 +230,40 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
 	s.singleChannel <- &message
+}
+
+// PubSubLibreLoggerAdapter is a helper struct for injecting the libre logger format into the paho libraries
+type PubSubLibreLoggerAdapter struct {
+	section string
+	level   string
+	logger  *libreLogger.LoggingEnabler
+}
+
+// Println prints a LibreLogger message
+func (l PubSubLibreLoggerAdapter) Println(v ...interface{}) {
+	msg := fmt.Sprint(v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+// Printf prints a LibreLogger message
+func (l PubSubLibreLoggerAdapter) Printf(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+// Create a new paho.Logger that uses the LibreLogger library
+func (s *pubSubConnectorMQTT) newPahoLogger(section, level string) paho.Logger {
+	return PubSubLibreLoggerAdapter{
+		section: section,
+		level:   level,
+		logger:  &s.LoggingEnabler,
+	}
 }
