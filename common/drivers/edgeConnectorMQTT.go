@@ -8,10 +8,7 @@ import (
 
 	"github.com/Spruik/libre-common/common/drivers/autopaho"
 
-	"log"
-
 	"net/url"
-	"os"
 	"regexp"
 
 	"strings"
@@ -44,6 +41,8 @@ type edgeConnectorMQTT struct {
 	topicParseRegExp *regexp.Regexp
 	tagDataCategory  string
 	eventCategory    string
+
+	ctxCancel context.CancelFunc
 }
 
 func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
@@ -166,10 +165,11 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	}
 
 	cliCfg.TlsCfg = &tlsConfig
-	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
-	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.Debug = s.newPahoLogger("autopaho", "DEBUG")
+	cliCfg.PahoDebug = s.newPahoLogger("paho", "DEBUG")
 	cliCfg.SetUsernamePassword(user, []byte(pwd))
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctxCancel = cancel
 	s.mqttConnectionManager, err = autopaho.NewConnection(ctx, cliCfg)
 	if err != nil {
 		s.LogErrorf("EdgeConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
@@ -195,6 +195,11 @@ func (s *edgeConnectorMQTT) Close() error {
 	//if err == nil {
 	//	s.mqttClient = nil
 	//}
+
+	if s.ctxCancel != nil {
+		s.ctxCancel()
+	}
+
 	s.LogInfo("Edge Connection Closed\n")
 	return nil
 }
@@ -266,6 +271,7 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 		}
 	}
 }
+
 func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
 	jsonBytes, err := json.Marshal(message)
 	retain := false
@@ -359,5 +365,37 @@ func (s *edgeConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 		}
 	} else {
 		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
+	}
+}
+
+type EdgeLibreLoggerAdapter struct {
+	section string
+	level   string
+	logger  *libreLogger.LoggingEnabler
+}
+
+func (l EdgeLibreLoggerAdapter) Println(v ...interface{}) {
+	msg := fmt.Sprint(v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+func (l EdgeLibreLoggerAdapter) Printf(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+func (s *edgeConnectorMQTT) newPahoLogger(section, level string) paho.Logger {
+	return EdgeLibreLoggerAdapter{
+		section: section,
+		level:   level,
+		logger:  &s.LoggingEnabler,
 	}
 }

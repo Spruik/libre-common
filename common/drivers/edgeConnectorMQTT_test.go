@@ -133,9 +133,11 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 
 		// Handle Broker Commands
 		runBroker := make(chan bool)
+		var cancelFunc context.CancelFunc
 
 		if testCase.StartMqttServer {
-			ctx, _ := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelFunc = cancel
 			// Create a listener
 			var ln net.Listener
 			var err error
@@ -198,6 +200,7 @@ func TestEdgeConnectorMQTT(t *testing.T) {
 						if s != nil {
 							s.Stop(ctx)
 						}
+						cancelFunc()
 						breakout = true
 					}
 				}
