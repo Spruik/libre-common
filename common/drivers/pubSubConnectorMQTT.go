@@ -4,9 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -27,6 +26,7 @@ type pubSubConnectorMQTT struct {
 	mqttClient            *paho.Client
 	singleChannel         chan *domain.StdMessage
 	config                map[string]string
+	ctxCancel             context.CancelFunc
 }
 
 func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
@@ -135,10 +135,11 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	}
 
 	cliCfg.TlsCfg = &tlsConfig
-	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
-	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
+	cliCfg.Debug = s.newPahoLogger("autoPaho", "DEBUG")
+	cliCfg.PahoDebug = s.newPahoLogger("paho", "DEBUG")
 	cliCfg.SetUsernamePassword(user, []byte(pwd))
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctxCancel = cancel
 	s.mqttConnectionManager, err = autopaho.NewConnection(ctx, cliCfg)
 	if err != nil {
 		s.LogErrorf("pubSubConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
@@ -150,6 +151,9 @@ func (s *pubSubConnectorMQTT) Connect() error {
 //Close implements the interface by closing the MQTT client
 func (s *pubSubConnectorMQTT) Close() error {
 	s.LogInfo("Edge Connection Closed\n")
+	if s.ctxCancel != nil {
+		s.ctxCancel()
+	}
 	return nil
 }
 
@@ -226,4 +230,40 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
 	s.singleChannel <- &message
+}
+
+// PubSubLibreLoggerAdapter is a helper struct for injecting the libre logger format into the paho libraries
+type PubSubLibreLoggerAdapter struct {
+	section string
+	level   string
+	logger  *libreLogger.LoggingEnabler
+}
+
+// Println prints a LibreLogger message
+func (l PubSubLibreLoggerAdapter) Println(v ...interface{}) {
+	msg := fmt.Sprint(v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+// Printf prints a LibreLogger message
+func (l PubSubLibreLoggerAdapter) Printf(format string, v ...interface{}) {
+	msg := fmt.Sprintf(format, v...)
+	if l.level == "DEBUG" {
+		l.logger.LogDebug(l.section + " | " + msg)
+	} else {
+		l.logger.LogInfo(l.section + " | " + msg)
+	}
+}
+
+// Create a new paho.Logger that uses the LibreLogger library
+func (s *pubSubConnectorMQTT) newPahoLogger(section, level string) paho.Logger {
+	return PubSubLibreLoggerAdapter{
+		section: section,
+		level:   level,
+		logger:  &s.LoggingEnabler,
+	}
 }

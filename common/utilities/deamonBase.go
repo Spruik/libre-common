@@ -105,7 +105,7 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 			child.Run(params)
 		}
 		var run = true
-		var processed = 0
+		// var processed = 0
 		for run {
 			d.LogDebug(d.name, "calling acceptCommand while in state=", d.state.GetStateName())
 			err = d.acceptCommand()
@@ -116,16 +116,16 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 				d.LogInfo(d.name, "latest command resulted in a terminal state - ending", d.state.GetStateName())
 				run = false
 			} else {
-//				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
+				//				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
 				if run && d.state.CanExecuteCycles() {
-//					d.LogDebug(d.name, "starting a cycle")
-					processed, err = d.oneProcessingCycleFxn(d)
+					//					d.LogDebug(d.name, "starting a cycle")
+					_, err = d.oneProcessingCycleFxn(d)
 					if err != nil {
 						panic(err)
 					}
-					if processed == 0 {
-//						d.LogDebug(d.name, "Nothing processed this loop")
-					}
+					//					if processed == 0 {
+					//						d.LogDebug(d.name, "Nothing processed this loop")
+					//					}
 				}
 			}
 		}
