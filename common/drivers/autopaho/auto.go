@@ -1,18 +1,18 @@
 package autopaho
 
 import (
-"context"
-"crypto/tls"
-"errors"
-"fmt"
-"net/http"
-"net/url"
-"sync"
-"time"
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sync"
+	"time"
 
-"github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 
-"github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 // AutoPaho is a wrapper around github.com/eclipse/paho.golang that simplifies the connection process; it automates
@@ -22,11 +22,11 @@ import (
 // requirements differ then please consider using github.com/eclipse/paho.golang directly (perhaps using the
 // code in this file as a base; a secondary aim is to provide example code!).
 
-// ConnectionDownError Down will be returned when a request is made but the connection to the broker is down
+// ErrorConnectionDown Down will be returned when a request is made but the connection to the broker is down
 // Note: It is possible that the connection will drop between the request being made and a response being received in
 // which case a different error will be received (this is only returned if the connection is down at the time the
 // request is made).
-var ConnectionDownError = errors.New("connection with the MQTT broker is currently down")
+var ErrorConnectionDown = errors.New("connection with the MQTT broker is currently down")
 
 // WebSocketConfig enables customisation of the websocket connection
 type WebSocketConfig struct {
@@ -292,7 +292,7 @@ func (c *ConnectionManager) Subscribe(ctx context.Context, s *paho.Subscribe) (*
 	c.mu.Unlock()
 
 	if cli == nil {
-		return nil, ConnectionDownError
+		return nil, ErrorConnectionDown
 	}
 	return cli.Subscribe(ctx, s)
 }
@@ -307,7 +307,7 @@ func (c *ConnectionManager) Unsubscribe(ctx context.Context, u *paho.Unsubscribe
 	c.mu.Unlock()
 
 	if cli == nil {
-		return nil, ConnectionDownError
+		return nil, ErrorConnectionDown
 	}
 	return cli.Unsubscribe(ctx, u)
 }
@@ -322,7 +322,7 @@ func (c *ConnectionManager) Publish(ctx context.Context, p *paho.Publish) (*paho
 	c.mu.Unlock()
 
 	if cli == nil {
-		return nil, ConnectionDownError
+		return nil, ErrorConnectionDown
 	}
 	return cli.Publish(ctx, p)
 }
