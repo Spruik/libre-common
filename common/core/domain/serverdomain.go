@@ -48,21 +48,22 @@ type TimeseriesValue struct {
 
 // StdMessageStruct used for publishing tag values throughout the libre ecosystem
 type StdMessageStruct struct {
-	OwningAsset       string
-	OwningAssetId     string
-	ItemName          string
-	ItemNameExt       map[string]string
-	ItemId            string
-	ItemValue         string
-	ItemOldValue      string
-	ItemDataType      string
-	TagQuality        int
-	Err               *string
-	ChangedTimestamp  time.Time
-	PreviousTimestamp time.Time
-	Category          string
-	Topic             string
-	ReplyTopic        string
+	OwningAsset       string             `json:"OwningAsset"`
+	OwningAssetId     string             `json:"OwningAssetId"`
+	ItemName          string             `json:"ItemName"`
+	ItemNameExt       map[string]string  `json:"ItemNameExt"`
+	ItemId            string             `json:"ItemId"`
+	ItemValue         string             `json:"ItemValue"`
+	ItemOldValue      string             `json:"ItemOldValue"`
+	ItemDataType      string             `json:"ItemDataType"`
+	TagQuality        int                `json:"TagQuality"`
+	Err               *string            `json:"Err"`
+	ChangedTimestamp  time.Time          `json:"ChangedTimestamp"`
+	PreviousTimestamp time.Time          `json:"PreviousTimestamp"`
+	Category          string             `json:"Category"`
+	Topic             string             `json:"Topic"`
+	ReplyTopic        string             `json:"ReplyTopic,omitempty"`
+	History           *[]TimeseriesValue `json:"History,omitempty"`
 }
 
 type EquipmentPropertyDescriptor struct {
