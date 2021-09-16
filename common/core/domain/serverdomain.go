@@ -14,6 +14,20 @@ const (
 	ADMIN_CMD_READY    string = "READY"
 )
 
+// OpcUaQuality refers to OPC-UA Standard tag quality
+type OpcUaQuality int
+
+const (
+	// Bad - Non-specific
+	Bad OpcUaQuality = 0
+
+	// Uncertain - Non-specific
+	Uncertain OpcUaQuality = 84
+
+	// Good - Non-specific
+	Good OpcUaQuality = 192
+)
+
 type AdminCommand struct {
 	Cmd  string
 	Args map[string]interface{}
@@ -24,23 +38,32 @@ type StdMessage struct {
 	Topic   string
 	Payload *json.RawMessage
 }
-type StdMessageStruct struct {
 
-	OwningAsset   string
-	OwningAssetId string
-	ItemName      string
-	ItemNameExt   map[string]string
-	ItemId        string
-	ItemValue     string
-	ItemOldValue  string
-	ItemDataType  string
-	TagQuality    int
-	Err           *string
-	ChangedTimestamp   time.Time
-	PreviousTimestamp   time.Time
-	Category      string
-	Topic         string
-	ReplyTopic    string
+// TimeseriesValue is a representation of a value in a point in time, uses OPC-UA Standard for Tag Quality
+type TimeseriesValue struct {
+	Value     interface{}
+	Timestamp time.Time
+	Quality   OpcUaQuality
+}
+
+// StdMessageStruct used for publishing tag values throughout the libre ecosystem
+type StdMessageStruct struct {
+	OwningAsset       string             `json:"OwningAsset"`
+	OwningAssetId     string             `json:"OwningAssetId"`
+	ItemName          string             `json:"ItemName"`
+	ItemNameExt       map[string]string  `json:"ItemNameExt"`
+	ItemId            string             `json:"ItemId"`
+	ItemValue         string             `json:"ItemValue"`
+	ItemOldValue      string             `json:"ItemOldValue"`
+	ItemDataType      string             `json:"ItemDataType"`
+	TagQuality        int                `json:"TagQuality"`
+	Err               *string            `json:"Err"`
+	ChangedTimestamp  time.Time          `json:"ChangedTimestamp"`
+	PreviousTimestamp time.Time          `json:"PreviousTimestamp"`
+	Category          string             `json:"Category"`
+	Topic             string             `json:"Topic"`
+	ReplyTopic        string             `json:"ReplyTopic,omitempty"`
+	History           *[]TimeseriesValue `json:"History,omitempty"`
 }
 
 type EquipmentPropertyDescriptor struct {
