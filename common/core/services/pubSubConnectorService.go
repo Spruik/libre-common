@@ -34,6 +34,6 @@ func (s *pubSubConnectorService) Close() error {
 func (s *pubSubConnectorService) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
 	return s.port.Publish(topic, payload, qos, retain)
 }
-func (s *pubSubConnectorService) Subscribe(c chan *domain.StdMessage, topicMap map[string]string) {
-	s.port.Subscribe(c, topicMap)
+func (s *pubSubConnectorService) Subscribe(c chan *domain.StdMessage, topicMap map[string]string, changeFilter map[string]interface{}) {
+	s.port.Subscribe(c, topicMap, changeFilter)
 }

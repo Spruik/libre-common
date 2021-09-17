@@ -1,18 +1,18 @@
 package autopaho
 
 import (
-"context"
-"crypto/tls"
-"errors"
-"fmt"
-"net/http"
-"net/url"
-"sync"
-"time"
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sync"
+	"time"
 
-"github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 
-"github.com/eclipse/paho.golang/paho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 // AutoPaho is a wrapper around github.com/eclipse/paho.golang that simplifies the connection process; it automates

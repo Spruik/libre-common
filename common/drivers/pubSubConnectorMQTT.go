@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -26,6 +27,7 @@ type pubSubConnectorMQTT struct {
 	mqttConnectionManager *autopaho.ConnectionManager
 	mqttClient            *paho.Client
 	singleChannel         chan *domain.StdMessage
+	ChangeChannels map[string]chan *domain.StdMessage
 	config                map[string]string
 }
 
@@ -33,6 +35,7 @@ func NewPubSubConnectorMQTT() *pubSubConnectorMQTT {
 	s := pubSubConnectorMQTT{
 		mqttClient: nil,
 	}
+	s.ChangeChannels = make(map[string]chan *domain.StdMessage)
 	s.SetConfigCategory("pubSubConnectorMQTT")
 	s.SetLoggerConfigHook("PubSubMQTT")
 	return &s
@@ -170,13 +173,34 @@ func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qo
 	return nil
 
 }
-func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string) {
+func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[string]string, changeFilter map[string]interface{}) {
 	s.LogDebugf("BEGIN Subscribe")
 	// the topic always starts with Libre.<EVENT_TYPE>.<ENTITY>
 	// where EVENT_TYPE is event, command or subscription
 	// and entity is the root type for the payload. Eg, WorkflowInstance or Task
 
-	s.singleChannel = c
+	var clientName string
+	fltrClient, exists := changeFilter["Client"]
+	if exists {
+		clientName = fmt.Sprintf("%s", fltrClient)
+	} else {
+		clientName = ""
+	}
+	if clientName == "" {
+		if s.singleChannel == nil {
+			s.singleChannel = c
+		} else {
+			panic("Cannot use more than one single channel listen")
+		}
+	} else{
+		if s.singleChannel == nil{
+			s.ChangeChannels[clientName] = c
+		} else{
+			panic("Cannot single channel listen with client-based listen")
+		}
+	}
+	s.LogDebugf("ListenForTagChanges called for Client %s", clientName)
+
 	//declare the handler for received messages
 	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	for _, val := range topicMap {
@@ -225,5 +249,12 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 		Topic:   m.Topic,
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
-	s.singleChannel <- &message
+	idLst := strings.Split(m.Topic,"/")
+	id := idLst[len(idLst) - 1]
+	if s.singleChannel == nil{
+		s.ChangeChannels[id] <- &message
+	}else{
+		s.singleChannel <- &message
+	}
+
 }

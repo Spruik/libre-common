@@ -92,7 +92,7 @@ func (s *plcConnectorOPCUA) connect() error {
 	if err == nil {
 		s.LogDebug("Config found:  ENDPOINT: " + endpointStr)
 	} else {
-		s.LogError("Config read failed:  ENDPOINT" , err)
+		s.LogError("Config read failed:  ENDPOINT", err)
 		panic("plcConnectorOPCUA failed to find configuration data for OPCUA connection")
 	}
 
@@ -100,7 +100,7 @@ func (s *plcConnectorOPCUA) connect() error {
 	endpoints, err := opcua.GetEndpoints(context.Background(), endpointStr)
 	if err == nil {
 		var endPointDesc *ua.EndpointDescription
-		for i := 0 ; i < len(endpoints) ; i++{
+		for i := 0; i < len(endpoints); i++ {
 			endPointDesc = endpoints[i]
 			s.LogDebug(">>>>>>>>>>>>>")
 			s.LogDebug("Endpoint EndpointURL            : " + endPointDesc.EndpointURL)
@@ -143,9 +143,9 @@ func (s *plcConnectorOPCUA) connect() error {
 	}
 	err = s.uaClient.Connect(s.connectionContext)
 	if err == nil {
-		s.LogInfo("OPCUA", "Connected to OPCUA server at: " + endpoint.EndpointURL)
+		s.LogInfo("OPCUA", "Connected to OPCUA server at: "+endpoint.EndpointURL)
 	} else {
-		s.LogError("OPCUA", "Failed in OPCUA connect: " , err)
+		s.LogError("OPCUA", "Failed in OPCUA connect: ", err)
 	}
 
 	return err
@@ -205,13 +205,13 @@ func (s *plcConnectorOPCUA) ListenForPlcTagChanges(c chan domain.StdMessageStruc
 
 			res, err := sub.Monitor(ua.TimestampsToReturnBoth, miCreateRequest)
 			if err != nil || res.Results[0].StatusCode != ua.StatusOK {
-				s.LogErrorf("failed to subscribe to node %s : %s",val.(string),err)
+				s.LogErrorf("failed to subscribe to node %s : %s", val.(string), err)
 				temp := err.Error()
 				tagData := domain.StdMessageStruct{
-					Err: &temp,
-					ItemName: val.(string),
+					Err:              &temp,
+					ItemName:         val.(string),
 					ChangedTimestamp: time.Now().UTC(),
-					Category: "TAGDATA",
+					Category:         "TAGDATA",
 				}
 				s.ChangeChannels[clientName] <- tagData
 				continue
@@ -286,11 +286,11 @@ func (s *plcConnectorOPCUA) startSubscription(clientName string, ctx context.Con
 					data := item.Value.Value.Value()
 					s.LogDebugf("MonitoredItem with client handle %v = %v", item.ClientHandle, data)
 					tagData := domain.StdMessageStruct{
-						OwningAsset: "", //will be completed by channel listener
-						ItemName:    s.clientHandleMap[item.ClientHandle],
-						ItemValue:   fmt.Sprintf("%v", data),
-						TagQuality:  128,
-						Err:         nil,
+						OwningAsset:      "", //will be completed by channel listener
+						ItemName:         s.clientHandleMap[item.ClientHandle],
+						ItemValue:        fmt.Sprintf("%v", data),
+						TagQuality:       128,
+						Err:              nil,
 						ChangedTimestamp: item.Value.ServerTimestamp, //time.now.utc
 					}
 					s.ChangeChannels[clientName] <- tagData

@@ -89,9 +89,9 @@ func (s *libreDataStoreTransactionGraphQL) ExecuteQuery(q interface{}, vars map[
 }
 
 func (s *libreDataStoreTransactionGraphQL) ExecuteMutation(m interface{}, vars map[string]interface{}) error {
-//	s.LogDebugf("GraphQL Transaction %s doing Mutate", s.txnName)
+	//	s.LogDebugf("GraphQL Transaction %s doing Mutate", s.txnName)
 	err := s.gqlClient.Mutate(context.Background(), m, vars)
-//	s.LogDebugf("GraphQL Transaction %s done with Mutate", s.txnName)
+	//	s.LogDebugf("GraphQL Transaction %s done with Mutate", s.txnName)
 	return err
 }
 
