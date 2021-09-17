@@ -25,7 +25,7 @@ type pubSubConnectorMQTT struct {
 	mqttConnectionManager *autopaho.ConnectionManager
 	mqttClient            *paho.Client
 	singleChannel         chan *domain.StdMessage
-	ChangeChannels map[string]chan *domain.StdMessage
+	ChangeChannels        map[string]chan *domain.StdMessage
 	config                map[string]string
 	ctxCancel             context.CancelFunc
 }
@@ -195,10 +195,10 @@ func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[
 		} else {
 			panic("Cannot use more than one single channel listen")
 		}
-	} else{
-		if s.singleChannel == nil{
+	} else {
+		if s.singleChannel == nil {
 			s.ChangeChannels[clientName] = c
-		} else{
+		} else {
 			panic("Cannot single channel listen with client-based listen")
 		}
 	}
@@ -252,11 +252,11 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 		Topic:   m.Topic,
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
-	idLst := strings.Split(m.Topic,"/")
-	id := idLst[len(idLst) - 1]
-	if s.singleChannel == nil{
+	idLst := strings.Split(m.Topic, "/")
+	id := idLst[len(idLst)-1]
+	if s.singleChannel == nil {
 		s.ChangeChannels[id] <- &message
-	}else{
+	} else {
 		s.singleChannel <- &message
 	}
 

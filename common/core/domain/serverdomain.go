@@ -39,7 +39,6 @@ type StdMessage struct {
 	Payload *json.RawMessage
 }
 
-
 // TimeseriesValue is a representation of a value in a point in time, uses OPC-UA Standard for Tag Quality
 type TimeseriesValue struct {
 	Value     interface{}
