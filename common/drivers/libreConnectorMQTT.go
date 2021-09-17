@@ -29,6 +29,8 @@ type libreConnectorMQTT struct {
 	topicTemplate   string
 	tagDataCategory string
 	eventCategory   string
+
+	ctxCancel context.CancelFunc
 }
 
 func NewLibreConnectorMQTT(configHook string) *libreConnectorMQTT {
@@ -142,7 +144,8 @@ func (s *libreConnectorMQTT) Connect() error {
 	cliCfg.Debug = log.New(os.Stdout, "autoPaho", 1)
 	cliCfg.PahoDebug = log.New(os.Stdout, "paho", 1)
 	cliCfg.SetUsernamePassword(user, []byte(pwd))
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctxCancel = cancel
 	cm, err := autopaho.NewConnection(ctx, cliCfg)
 	if err != nil {
 		s.LogErrorf("LibreConnector failed initial mqtt connection to %s, expected no error; got %s", cliCfg.BrokerUrls, err)
@@ -165,6 +168,11 @@ func (s *libreConnectorMQTT) Close() error {
 	//if err == nil {
 	//	s.mqttClient = nil
 	//}
+
+	if s.ctxCancel != nil {
+		s.ctxCancel()
+	}
+
 	s.LogInfo("Libre Connection Closed\n")
 	return nil
 }

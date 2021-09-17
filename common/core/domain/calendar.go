@@ -183,6 +183,23 @@ func (workCalendar *WorkCalendar) GetEntriesAtTime(atTime time.Time) (entries []
 	return entries, nil
 }
 
+// GetEntries generates the entries for the WorkCalendar
+func (workCalendar *WorkCalendar) GetEntries() (entries []WorkCalendarEntry, err error) {
+	// Gather Entries
+	for _, definition := range workCalendar.Definition {
+		if defintionEntries, err := definition.GenerateEntries(); err == nil {
+			entries = append(entries, defintionEntries...)
+
+			for _, entry := range defintionEntries {
+				fmt.Printf("%s from %s to %s\n", entry.Description, entry.StartDateTime, entry.EndDateTime)
+			}
+		} else {
+			return entries, err
+		}
+	}
+	return entries, nil
+}
+
 // WorkCalendarDefinitionEntry defintes a repeating pattern for workCalendarEntries
 type WorkCalendarDefinitionEntry struct {
 	ID          string `graphql:"id" json:"id,omitempty"`
@@ -300,11 +317,16 @@ func (timeFilter *timeFilter) compare(time time.Time) bool {
 	}
 
 	_, wk := time.ISOWeek()
+	weekDay := int(time.Weekday())
+
+	if weekDay == 0 {
+		wk++ // ISOWeek Starts on a Monday, we want it to start on Sunday
+	}
+
 	if !timeFilter.allWeekNo && !intExists(timeFilter.def.ByWeekNo, wk) {
 		return false
 	}
 
-	weekDay := int(time.Weekday())
 	byWeekDay := WeekdaySliceAsInts(timeFilter.def.ByWeekDay)
 
 	return timeFilter.allDays || intExists(byWeekDay, weekDay)

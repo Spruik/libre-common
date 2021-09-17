@@ -437,7 +437,7 @@ var entryTestCases = []entryTestCase{
 	},
 }
 
-func TestWorkCalendarGetEntries(t *testing.T) {
+func TestWorkCalendarGetEntriesAtTime(t *testing.T) {
 	for _, tc := range entryTestCases {
 		entries, err := tc.WorkCalendar.GetEntriesAtTime(tc.Now)
 
@@ -646,4 +646,264 @@ func TestGetCurrentEntryType(t *testing.T) {
 			t.Errorf("Failed to get names of GetCurrentEntryType")
 		}
 	}
+}
+
+var testCasesGetEntries = []entryTestCase{
+	{
+		Name: "Fortnightly Shift Pattern 12H Shifts, 3-2-2-3-2-2",
+		WorkCalendar: WorkCalendar{
+			ID:          "0x456",
+			IsActive:    true,
+			Name:        "Real Example",
+			Description: "Fortnightly Shift Pattern 12H Shifts, 3-2-2-3-2-2",
+			Definition: []WorkCalendarDefinitionEntry{
+				{
+					ID:            "0x124",
+					IsActive:      true,
+					Description:   "Shift A - Odd",
+					Freq:          Daily,
+					StartDateTime: mustMakeTime("2021-08-30T11:00:00Z"),
+					EndDateTime:   mustMakeTime("2021-10-04T11:00:00Z"),
+					Count:         0,
+					Interval:      0,
+					Weekday:       Sunday,
+					ByWeekDay:     []Weekday{Monday, Saturday, Wednesday, Tuesday},
+					ByMonth:       []int{},
+					BySetPos:      []int{},
+					ByMonthDay:    []int{},
+					ByWeekNo:      []int{43, 51, 49, 47, 41, 39, 35, 37, 45},
+					ByHour:        []int{},
+					ByMinute:      []int{},
+					BySecond:      []int{},
+					ByYearDay:     []int{},
+					Duration:      "PT12H",
+					EntryType:     PlannedBusyTime,
+				},
+				{
+					ID:            "0x125",
+					IsActive:      true,
+					Description:   "Shift A - Even",
+					Freq:          Daily,
+					StartDateTime: mustMakeTime("2021-08-30T11:00:00Z"),
+					EndDateTime:   mustMakeTime("2021-10-04T11:00:00Z"),
+					Count:         0,
+					Interval:      0,
+					Weekday:       Sunday,
+					ByWeekDay:     []Weekday{Thursday, Sunday, Friday},
+					ByMonth:       []int{},
+					BySetPos:      []int{},
+					ByMonthDay:    []int{},
+					ByWeekNo:      []int{38, 40, 50, 48, 46, 44, 52, 42, 36},
+					ByHour:        []int{},
+					ByMinute:      []int{},
+					BySecond:      []int{},
+					ByYearDay:     []int{},
+					Duration:      "PT12H",
+					EntryType:     PlannedBusyTime,
+				},
+			},
+			Entries:   []WorkCalendarEntry{},
+			Equipment: []Equipment{},
+		},
+		Now: mustMakeTime("2021-09-15T12:12:12Z"),
+		Entries: []WorkCalendarEntry{
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-08-30T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-08-30T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-08-31T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-08-31T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-01T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-01T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// Off for two
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-04T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-04T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-05T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-05T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// Off for three
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-09T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-09T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-10T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-10T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// Off for two
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-13T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-13T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-14T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-14T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-15T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-15T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// off for two
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-18T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-18T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-19T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-19T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// off for three
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-23T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-23T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-09-24T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-24T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			// off for two
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-27T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-27T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-28T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-28T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-09-29T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-09-29T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Odd",
+				StartDateTime: mustMakeTime("2021-10-02T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-10-02T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+			{
+				ID:            "",
+				IsActive:      true,
+				Description:   "Shift A - Even",
+				StartDateTime: mustMakeTime("2021-10-03T11:00:00Z"),
+				EndDateTime:   mustMakeTime("2021-10-03T23:00:00Z"),
+				EntryType:     PlannedBusyTime,
+			},
+		},
+		Error: false,
+	},
+}
+
+func TestWorkCalendarGetEntries(t *testing.T) {
+	for _, tc := range testCasesGetEntries {
+		entries, err := tc.WorkCalendar.GetEntries()
+
+		// Expect Error
+		if tc.Error && err == nil {
+			t.Errorf("Test Case '%s': got no error; want error", tc.Name)
+		}
+
+		// Don't Expect Error
+		if !tc.Error && err != nil {
+			t.Errorf("Test Case '%s': got error: %s; want no error", tc.Name, err)
+		}
+
+		// Expect Same Entry Count
+		if len(entries) != len(tc.Entries) {
+			t.Errorf("Test Case '%s': got %d entries; want %d", tc.Name, len(entries), len(tc.Entries))
+		}
+
+		// Expect Same Entries
+		for _, expectedEntry := range tc.Entries {
+			found := false
+			for _, actualEntry := range entries {
+				if expectedEntry.Description == actualEntry.Description && expectedEntry.StartDateTime.Equal(actualEntry.StartDateTime) && expectedEntry.EndDateTime.Equal(actualEntry.EndDateTime) && actualEntry.EntryType == expectedEntry.EntryType {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf("Test Case '%s': expected to find entry %v; but didn't", tc.Name, expectedEntry)
+			}
+		}
+	}
+
+	t.Log("Complete TestWorkCalendarGetEntries")
 }
