@@ -8,6 +8,6 @@ import (
 type PubSubConnectorPort interface {
 	Connect() error
 	Close() error
-	Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error
-	Subscribe(c chan *domain.StdMessage, topicMap map[string]string)
+	Publish(topic string, payload *json.RawMessage, qos byte, retain bool, username *string) error
+	Subscribe(c chan *domain.StdMessage, topicMap map[string]string, changeFilter map[string]interface{})
 }

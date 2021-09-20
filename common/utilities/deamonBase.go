@@ -119,6 +119,7 @@ func (d *DaemonBase) Run(params map[string]interface{}) {
 				//				d.LogDebug(d.name, "considering a cycle ", run, d.state.GetStateName())
 				if run && d.state.CanExecuteCycles() {
 					//					d.LogDebug(d.name, "starting a cycle")
+
 					_, err = d.oneProcessingCycleFxn(d)
 					if err != nil {
 						panic(err)
