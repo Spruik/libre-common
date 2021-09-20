@@ -160,14 +160,25 @@ func (s *pubSubConnectorMQTT) Close() error {
 }
 
 //SendTagChange implements the interface by publishing the tag data to the standard tag change topic
-func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool) error {
+func (s *pubSubConnectorMQTT) Publish(topic string, payload *json.RawMessage, qos byte, retain bool, username *string) error {
 	s.LogDebug("Start publishing message to topic " + topic)
-	pubStruct := &paho.Publish{
-		QoS:        0,
-		Retain:     retain,
-		Topic:      topic,
-		Properties: nil,
-		Payload:    *payload,
+	pubStruct := &paho.Publish{}
+	if username == nil{
+		pubStruct = &paho.Publish{
+			QoS:        0,
+			Retain:     retain,
+			Topic:      topic,
+			Properties: nil,
+			Payload:    *payload,
+		}
+	}else{
+		pubStruct = &paho.Publish{
+			QoS:        0,
+			Retain:     retain,
+			Topic:      topic,
+			Properties: &paho.PublishProperties{User: paho.UserProperties{paho.UserProperty{Key: "Username", Value: *username}}},
+			Payload:    *payload,
+		}
 	}
 	pubResp, err := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
 	if err != nil {
@@ -207,7 +218,7 @@ func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[
 	//declare the handler for received messages
 	//s.mqttClient.Router = paho.NewSingleHandlerRouter(s.tagChangeHandler)
 	for _, val := range topicMap {
-		err := s.SubscribeToTopic(val)
+		err := s.SubscribeToTopic(val,clientName)
 		if err == nil {
 			s.LogInfof("Subscribed to topic %s", val)
 		} else {
@@ -220,10 +231,10 @@ func (s *pubSubConnectorMQTT) Subscribe(c chan *domain.StdMessage, topicMap map[
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string) error {
+func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string, clientName string) error {
 	subPropsStruct := &paho.SubscribeProperties{
 		SubscriptionIdentifier: nil,
-		User:                   nil,
+		User:                   paho.UserProperties{paho.UserProperty{Key: "Username",Value: clientName}},
 	}
 	var subMap = make(map[string]paho.SubscribeOptions)
 	subMap[topic] = paho.SubscribeOptions{
@@ -247,13 +258,13 @@ func (s *pubSubConnectorMQTT) SubscribeToTopic(topic string) error {
 
 func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 	s.LogDebug("BEGIN tagChangeHandler")
-
 	message := domain.StdMessage{
 		Topic:   m.Topic,
 		Payload: (*json.RawMessage)(&m.Payload),
 	}
-	idLst := strings.Split(m.Topic, "/")
-	id := idLst[len(idLst)-1]
+	//idLst := strings.Split(m.Topic,"/")
+	//id := idLst[len(idLst) - 1]
+	id := m.Properties.User.Get("Username")
 	if s.singleChannel == nil {
 		s.ChangeChannels[id] <- &message
 	} else {
