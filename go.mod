@@ -9,8 +9,9 @@ require (
 	github.com/Spruik/libre-logging v0.1.0
 	github.com/eclipse/paho.golang v0.10.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/go-gota/gota v0.11.0
 	github.com/google/uuid v1.3.0
-	github.com/gopcua/opcua v0.2.0-rc2
+	github.com/gopcua/opcua v0.2.0-rc2.0.20210914123402-4d18b1437cf8
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hasura/go-graphql-client v0.2.0
@@ -21,3 +22,5 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	nhooyr.io/websocket v1.8.6
 )
+
+replace github.com/gopcua/opcua v0.2.0-rc2.0.20210914123402-4d18b1437cf8 => /Users/geoffreynunan/documents/github/opcua
