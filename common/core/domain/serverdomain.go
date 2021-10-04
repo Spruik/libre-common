@@ -54,8 +54,8 @@ type StdMessageStruct struct {
 	ItemName          string             `json:"ItemName"`
 	ItemNameExt       map[string]string  `json:"ItemNameExt"`
 	ItemId            string             `json:"ItemId"`
-	ItemValue         string             `json:"ItemValue"`
-	ItemOldValue      string             `json:"ItemOldValue"`
+	ItemValue         interface{}             `json:"ItemValue"`
+	ItemOldValue      interface{}             `json:"ItemOldValue"`
 	ItemDataType      string             `json:"ItemDataType"`
 	TagQuality        int                `json:"TagQuality"`
 	Err               *string            `json:"Err"`
@@ -65,6 +65,27 @@ type StdMessageStruct struct {
 	Topic             string             `json:"Topic"`
 	ReplyTopic        string             `json:"ReplyTopic,omitempty"`
 	History           *[]TimeseriesValue `json:"History,omitempty"`
+}
+
+func ConvertTypes(messageStruct StdMessageStruct) StdMessageStruct{
+	switch messageStruct.ItemDataType {
+	case "FLOAT":
+		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemValue),64)
+		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemOldValue),64)
+	case "FLOAT64":
+		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemValue),64)
+		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemOldValue),64)
+	case "INT32":
+		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemValue))
+		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+	case "INT":
+		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemValue))
+		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+	case "BOOL":
+		messageStruct.ItemValue,_ = strconv.ParseBool(fmt.Sprintf("%v",messageStruct.ItemValue))
+		messageStruct.ItemOldValue,_ = strconv.ParseBool(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+	}
+	return messageStruct
 }
 
 type EquipmentPropertyDescriptor struct {
