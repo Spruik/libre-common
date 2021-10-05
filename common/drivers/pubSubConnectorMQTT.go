@@ -270,7 +270,6 @@ func (s *pubSubConnectorMQTT) tagChangeHandler(m *paho.Publish) {
 	} else {
 		s.singleChannel <- &message
 	}
-
 }
 
 // PubSubLibreLoggerAdapter is a helper struct for injecting the libre logger format into the paho libraries

@@ -34,6 +34,7 @@ type AdminCommand struct {
 }
 
 type DateTime string
+
 type StdMessage struct {
 	Topic   string
 	Payload *json.RawMessage

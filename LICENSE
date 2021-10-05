@@ -13,8 +13,21 @@ to the Software), a product or service whose value derives, entirely or substant
 from the functionality of the Software. Any license notice or attribution required by the
  License must also include this Commons Clause License Condition notice.
 
-Software: github.com/Spruik/libre-common
+Software:
+    https://github.com/libremfg/getting-started
+    ghcr.io/spruik/libre-gateway
+    ghcr.io/spruik/libre-admin-ui
+    ghcr.io/spruik/graphql-pubsub
+    ghcr.io/spruik/libre-server
+    ghcr.io/spruik/libre-core
+    ghcr.io/spruik/libre-workflow-pubsub
 
-License: MIT
+
+
+License: Apache 2 http://www.apache.org/licenses/LICENSE-2.0
 
 Licensor: Libre Technologies
+
+Copyright 2021 Libre Technologies
+
+
