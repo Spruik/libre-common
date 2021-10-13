@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"time"
 
-	logging "github.com/Spruik/libre-logging"
+	libreLogger "github.com/Spruik/libre-logging"
 	"github.com/go-gota/gota/dataframe"
 	"github.com/go-gota/gota/series"
 )
 
-//The LibreHistorianPort interface defines the functions to be provided by the service acting as the history data store in Libre
+// The LibreHistorianPort interface defines the functions to be provided by the service acting as the history data store in Libre
 type LibreHistorianPortDF interface {
 
-	//Connect is called to establish a connection to the data store service
+	// Connect is called to establish a connection to the data store service
 	Connect() error
 
-	//Close is called to close the data store connection
+	// Close is called to close the data store connection
 	Close() error
 
 	AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error
@@ -28,45 +28,50 @@ type LibreHistorianPortDF interface {
 	QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame
 
 	QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame
-
-	//TODO - other query "convenience" methods?
 }
 
+// LibreHistorianPortHandler wraps a LibreHistorianPortDF with validation of resulting queries and performance metrics.
 type LibreHistorianPortHandler struct {
-	logging.LoggingEnabler
-
+	libreLogger.LoggingEnabler
 	libreHistorianPortDF LibreHistorianPortDF
+	islibreLogger        bool
 }
 
-func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF LibreHistorianPortDF) LibreHistorianPortHandler {
-	result := LibreHistorianPortHandler{
+// NewLibreHistorianPortHandler creates a new LibreHistorianPortHandler with a logger hook and LibreHistorianPortDF
+func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF LibreHistorianPortDF) (result LibreHistorianPortHandler) {
+	result = LibreHistorianPortHandler{
 		libreHistorianPortDF: libreHistorianPortDF,
 	}
 
 	if loggingHook == "" {
-		loggingHook = "LibreHistorainPortHandler"
+		loggingHook = "LibreHistorainPortHandlesr"
 	}
 	result.SetLoggerConfigHook(loggingHook)
 
 	return result
 }
 
+// Connect calls Connect on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) Connect() error {
 	return h.libreHistorianPortDF.Connect()
 }
 
+// Close calls Close on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) Close() error {
 	return h.libreHistorianPortDF.Close()
 }
 
+// AddDataPointRaw calls AddDataPointRaw on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
 	return h.libreHistorianPortDF.AddDataPointRaw(measurement, tags, fields, ts)
 }
 
+// AddEqPropDataPoint calls AddEqPropDataPoint on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error {
 	return h.libreHistorianPortDF.AddEqPropDataPoint(measurement, eqId, eqName, propId, propName, propValue, ts)
 }
 
+// QueryRaw calls QueryRaw on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) QueryRaw(query string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
@@ -83,6 +88,7 @@ func (h *LibreHistorianPortHandler) QueryRaw(query string) *dataframe.DataFrame 
 	return results
 }
 
+// QueryRecentPointHistory calls QueryRecentPointHistory on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
@@ -99,6 +105,7 @@ func (h *LibreHistorianPortHandler) QueryRecentPointHistory(backTimeToken string
 	return results
 }
 
+// QueryLatestFromPointHistory calls QueryLatestFromPointHistory on the LibreHistorianPortDF instance
 func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
@@ -116,7 +123,8 @@ func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string
 	return results
 }
 
-func validateDataframe(df *dataframe.DataFrame) (err error) {
+// Validate Result contains columns "Tag", "Timestamp", "Svalue", "Dvalue", "Quality"
+func validateDataframe(df *dataframe.DataFrame) error {
 	names := df.Names()
 	types := df.Types()
 
