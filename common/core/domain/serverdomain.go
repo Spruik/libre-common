@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/go-gota/gota/dataframe"
 )
 
 const (
@@ -40,31 +42,24 @@ type StdMessage struct {
 	Payload *json.RawMessage
 }
 
-// TimeseriesValue is a representation of a value in a point in time, uses OPC-UA Standard for Tag Quality
-type TimeseriesValue struct {
-	Value     interface{}
-	Timestamp time.Time
-	Quality   TagQuality
-}
-
 // StdMessageStruct used for publishing tag values throughout the libre ecosystem
 type StdMessageStruct struct {
-	OwningAsset       string             `json:"OwningAsset"`
-	OwningAssetId     string             `json:"OwningAssetId"`
-	ItemName          string             `json:"ItemName"`
-	ItemNameExt       map[string]string  `json:"ItemNameExt"`
-	ItemId            string             `json:"ItemId"`
-	ItemValue         interface{}        `json:"ItemValue"`
-	ItemOldValue      interface{}        `json:"ItemOldValue"`
-	ItemDataType      string             `json:"ItemDataType"`
-	TagQuality        int                `json:"TagQuality"`
-	Err               *string            `json:"Err"`
-	ChangedTimestamp  time.Time          `json:"ChangedTimestamp"`
-	PreviousTimestamp time.Time          `json:"PreviousTimestamp"`
-	Category          string             `json:"Category"`
-	Topic             string             `json:"Topic"`
-	ReplyTopic        string             `json:"ReplyTopic,omitempty"`
-	History           *[]TimeseriesValue `json:"History,omitempty"`
+	OwningAsset       string                 `json:"OwningAsset"`
+	OwningAssetId     string                 `json:"OwningAssetId"`
+	ItemName          string                 `json:"ItemName"`
+	ItemNameExt       map[string]string      `json:"ItemNameExt"`
+	ItemId            string                 `json:"ItemId"`
+	ItemValue         interface{}            `json:"ItemValue"`
+	ItemOldValue      interface{}            `json:"ItemOldValue"`
+	ItemDataType      string                 `json:"ItemDataType"`
+	TagQuality        int                    `json:"TagQuality"`
+	Err               *string                `json:"Err"`
+	ChangedTimestamp  time.Time              `json:"ChangedTimestamp"`
+	PreviousTimestamp time.Time              `json:"PreviousTimestamp"`
+	Category          string                 `json:"Category"`
+	Topic             string                 `json:"Topic"`
+	ReplyTopic        string                 `json:"ReplyTopic,omitempty"`
+	History           *[]dataframe.DataFrame `json:"History,omitempty"`
 }
 
 func ConvertTypes(messageStruct StdMessageStruct) StdMessageStruct {
