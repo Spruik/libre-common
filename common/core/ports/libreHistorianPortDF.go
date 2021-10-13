@@ -1,8 +1,9 @@
 package ports
 
 import (
-	"github.com/go-gota/gota/dataframe"
 	"time"
+
+	"github.com/go-gota/gota/dataframe"
 )
 
 //The LibreHistorianPort interface defines the functions to be provided by the service acting as the history data store in Libre
@@ -18,11 +19,11 @@ type LibreHistorianPortDF interface {
 
 	AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error
 
-	QueryRaw(query string) (*dataframe.DataFrame, error)
+	QueryRaw(query string) *dataframe.DataFrame
 
-	QueryRecentPointHistory(backTimeToken string, pointName string) (*dataframe.DataFrame, error)
+	QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame
 
-	QueryLatestFromPointHistory(pointName string) (*dataframe.DataFrame, error)
+	QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame
 
 	//TODO - other query "convenience" methods?
 }
