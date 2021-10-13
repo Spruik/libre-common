@@ -1,11 +1,13 @@
 package ports
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	logging "github.com/Spruik/libre-logging"
 	"github.com/go-gota/gota/dataframe"
+	"github.com/go-gota/gota/series"
 )
 
 //The LibreHistorianPort interface defines the functions to be provided by the service acting as the history data store in Libre
@@ -115,6 +117,32 @@ func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string
 }
 
 func validateDataframe(df *dataframe.DataFrame) (err error) {
-	// TODO: Validate Result contains columns "Tag", "Timestamp", "Svalue", "Dvalue", "Quality"
-	return err
+	names := df.Names()
+	types := df.Types()
+
+	if len(names) != 5 {
+		return errors.New("improper dataframe column count. Expected 5.")
+	}
+
+	for i, n := range names {
+
+		switch n {
+		case "Tag", "Svalue":
+			if types[i] != series.String {
+				return errors.New("improper column type. '" + n + "' Expected 'String'")
+			}
+		case "Dvalue":
+			if !(types[i] == series.Int || types[i] == series.Float) {
+				return errors.New("improper column type. '" + n + "' Expected 'Int' or 'Float'")
+			}
+		case "Timestamp", "Quality":
+			if types[i] != series.Int {
+				return errors.New("improper column type. '" + n + "' Expected 'Int'")
+			}
+		default:
+			return errors.New("improper dataframe column name. '" + n + "'.")
+		}
+	}
+
+	return nil
 }
