@@ -14,18 +14,18 @@ const (
 	ADMIN_CMD_READY    string = "READY"
 )
 
-// OpcUaQuality refers to OPC-UA Standard tag quality
-type OpcUaQuality int
+// TagQuality references to OPC-UA Standard tag quality
+type TagQuality int
 
 const (
 	// Bad - Non-specific
-	Bad OpcUaQuality = 0
+	Bad TagQuality = 0
 
 	// Uncertain - Non-specific
-	Uncertain OpcUaQuality = 84
+	Uncertain TagQuality = 84
 
 	// Good - Non-specific
-	Good OpcUaQuality = 192
+	Good TagQuality = 192
 )
 
 type AdminCommand struct {
@@ -44,7 +44,7 @@ type StdMessage struct {
 type TimeseriesValue struct {
 	Value     interface{}
 	Timestamp time.Time
-	Quality   OpcUaQuality
+	Quality   TagQuality
 }
 
 // StdMessageStruct used for publishing tag values throughout the libre ecosystem
@@ -54,8 +54,8 @@ type StdMessageStruct struct {
 	ItemName          string             `json:"ItemName"`
 	ItemNameExt       map[string]string  `json:"ItemNameExt"`
 	ItemId            string             `json:"ItemId"`
-	ItemValue         interface{}             `json:"ItemValue"`
-	ItemOldValue      interface{}             `json:"ItemOldValue"`
+	ItemValue         interface{}        `json:"ItemValue"`
+	ItemOldValue      interface{}        `json:"ItemOldValue"`
 	ItemDataType      string             `json:"ItemDataType"`
 	TagQuality        int                `json:"TagQuality"`
 	Err               *string            `json:"Err"`
@@ -67,23 +67,23 @@ type StdMessageStruct struct {
 	History           *[]TimeseriesValue `json:"History,omitempty"`
 }
 
-func ConvertTypes(messageStruct StdMessageStruct) StdMessageStruct{
+func ConvertTypes(messageStruct StdMessageStruct) StdMessageStruct {
 	switch messageStruct.ItemDataType {
 	case "FLOAT":
-		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemValue),64)
-		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemOldValue),64)
+		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v", messageStruct.ItemValue), 64)
+		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v", messageStruct.ItemOldValue), 64)
 	case "FLOAT64":
-		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemValue),64)
-		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v",messageStruct.ItemOldValue),64)
+		messageStruct.ItemValue, _ = strconv.ParseFloat(fmt.Sprintf("%v", messageStruct.ItemValue), 64)
+		messageStruct.ItemOldValue, _ = strconv.ParseFloat(fmt.Sprintf("%v", messageStruct.ItemOldValue), 64)
 	case "INT32":
-		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemValue))
-		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v", messageStruct.ItemValue))
+		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v", messageStruct.ItemOldValue))
 	case "INT":
-		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemValue))
-		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+		messageStruct.ItemValue, _ = strconv.Atoi(fmt.Sprintf("%v", messageStruct.ItemValue))
+		messageStruct.ItemOldValue, _ = strconv.Atoi(fmt.Sprintf("%v", messageStruct.ItemOldValue))
 	case "BOOL":
-		messageStruct.ItemValue,_ = strconv.ParseBool(fmt.Sprintf("%v",messageStruct.ItemValue))
-		messageStruct.ItemOldValue,_ = strconv.ParseBool(fmt.Sprintf("%v",messageStruct.ItemOldValue))
+		messageStruct.ItemValue, _ = strconv.ParseBool(fmt.Sprintf("%v", messageStruct.ItemValue))
+		messageStruct.ItemOldValue, _ = strconv.ParseBool(fmt.Sprintf("%v", messageStruct.ItemOldValue))
 	}
 	return messageStruct
 }
