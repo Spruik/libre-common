@@ -40,12 +40,22 @@ type LibreHistorianPortHandler struct {
 // NewLibreHistorianPortHandler creates a new LibreHistorianPortHandler with a logger hook and LibreHistorianPortDF
 func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF LibreHistorianPortDF) (result LibreHistorianPortHandler) {
 	result = LibreHistorianPortHandler{
+		islibreLogger:        true,
 		libreHistorianPortDF: libreHistorianPortDF,
 	}
 
 	if loggingHook == "" {
 		loggingHook = "LibreHistorainPortHandlesr"
 	}
+
+	defer func() {
+		_ = recover()
+		result = LibreHistorianPortHandler{
+			islibreLogger:        false,
+			libreHistorianPortDF: libreHistorianPortDF,
+		}
+	}()
+
 	result.SetLoggerConfigHook(loggingHook)
 
 	return result
@@ -76,12 +86,20 @@ func (h *LibreHistorianPortHandler) QueryRaw(query string) *dataframe.DataFrame 
 	start := time.Now()
 	defer func() {
 		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryRaw in %s", time.Since(start))
-		h.LogDebug(msg)
+		if h.IsLibreLogger() {
+			h.LogDebug(msg)
+		} else {
+			fmt.Println(msg)
+		}
 	}()
 	results := h.libreHistorianPortDF.QueryRaw(query)
 
 	if err := validateDataframe(results); err != nil {
-		h.LogError(err)
+		if h.IsLibreLogger() {
+			h.LogError(err)
+		} else {
+			fmt.Println(err)
+		}
 		results.Err = err
 	}
 
@@ -93,12 +111,20 @@ func (h *LibreHistorianPortHandler) QueryRecentPointHistory(backTimeToken string
 	start := time.Now()
 	defer func() {
 		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryRecentPointHistory in %s", time.Since(start))
-		h.LogDebug(msg)
+		if h.IsLibreLogger() {
+			h.LogDebug(msg)
+		} else {
+			fmt.Println(msg)
+		}
 	}()
 	results := h.libreHistorianPortDF.QueryRecentPointHistory(backTimeToken, pointName)
 
 	if err := validateDataframe(results); err != nil {
-		h.LogError(err)
+		if h.IsLibreLogger() {
+			h.LogError(err)
+		} else {
+			fmt.Println(err)
+		}
 		results.Err = err
 	}
 
@@ -110,17 +136,31 @@ func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string
 	start := time.Now()
 	defer func() {
 		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryLatestFromPointHistory in %s", time.Since(start))
-		h.LogDebug(msg)
+		if h.IsLibreLogger() {
+			h.LogDebug(msg)
+		} else {
+			fmt.Println(msg)
+		}
+
 	}()
 
 	results := h.libreHistorianPortDF.QueryRaw(pointName)
 
 	if err := validateDataframe(results); err != nil {
-		h.LogError(err)
+		if h.IsLibreLogger() {
+			h.LogError(err)
+		} else {
+			fmt.Println(err)
+		}
 		results.Err = err
 	}
 
 	return results
+}
+
+// IsLibreLogger returns true when using the LibreLogger
+func (h *LibreHistorianPortHandler) IsLibreLogger() bool {
+	return h.islibreLogger
 }
 
 // Validate Result contains columns "Tag", "Timestamp", "Svalue", "Dvalue", "Quality"
