@@ -17,7 +17,7 @@ type FakeLibreConnector struct {
 	nextError bool
 }
 
-func (libreConnector FakeLibreConnector) Connect(clientId string) error {
+func (libreConnector FakeLibreConnector) Connect(clientID string) error {
 	panic("implement me")
 }
 
