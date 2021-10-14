@@ -9,7 +9,7 @@ import (
 	"github.com/go-gota/gota/series"
 )
 
-type LibreHistorianPortHandlerTestCase struct {
+type LibreHistorianDFServiceTestCase struct {
 	Name     string
 	IsError  bool
 	QueryRaw struct {
@@ -25,7 +25,7 @@ type LibreHistorianPortHandlerTestCase struct {
 	ExpectedResult dataframe.DataFrame
 }
 
-var LibreHistorianPortHandlerTestCases = []LibreHistorianPortHandlerTestCase{
+var LibreHistorianDFServiceTestCases = []LibreHistorianDFServiceTestCase{
 	{
 		Name:    "Passing Dataframe - Float Dvalue",
 		IsError: false,
@@ -170,14 +170,14 @@ var LibreHistorianPortHandlerTestCases = []LibreHistorianPortHandlerTestCase{
 	},
 }
 
-func TestLibreHistorianPortHandler(t *testing.T) {
+func TestLibreHistorianDFService(t *testing.T) {
 
-	for _, tc := range LibreHistorianPortHandlerTestCases {
+	for _, tc := range LibreHistorianDFServiceTestCases {
 		result := &tc.ExpectedResult
 		if result == nil {
 			t.Errorf("%s: result not defined for test case", tc.Name)
 		}
-		historinPort := services.NewLibreHistorianPortHandler("test", MockLibreHistorainDF{
+		historinPort := services.NewLibreHistorianDFService("test", MockLibreHistorainDF{
 			Result: result,
 		})
 
