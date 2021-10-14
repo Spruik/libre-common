@@ -11,16 +11,16 @@ import (
 	"github.com/go-gota/gota/series"
 )
 
-// LibreHistorianPortHandler wraps a LibreHistorianPortDF with validation of resulting queries and performance metrics.
-type LibreHistorianPortHandler struct {
+// LibreHistorianDFService wraps a LibreHistorianPortDF with validation of resulting queries and performance metrics.
+type LibreHistorianDFService struct {
 	libreLogger.LoggingEnabler
 	libreHistorianPortDF ports.LibreHistorianPortDF
 	islibreLogger        bool
 }
 
-// NewLibreHistorianPortHandler creates a new LibreHistorianPortHandler with a logger hook and LibreHistorianPortDF
-func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF ports.LibreHistorianPortDF) (result LibreHistorianPortHandler) {
-	result = LibreHistorianPortHandler{
+// NewLibreHistorianDFService creates a new LibreHistorianDFService with a logger hook and LibreHistorianPortDF
+func NewLibreHistorianDFService(loggingHook string, libreHistorianPortDF ports.LibreHistorianPortDF) (result LibreHistorianDFService) {
+	result = LibreHistorianDFService{
 		islibreLogger:        true,
 		libreHistorianPortDF: libreHistorianPortDF,
 	}
@@ -31,7 +31,7 @@ func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF ports
 
 	defer func() {
 		_ = recover()
-		result = LibreHistorianPortHandler{
+		result = LibreHistorianDFService{
 			islibreLogger:        false,
 			libreHistorianPortDF: libreHistorianPortDF,
 		}
@@ -43,30 +43,30 @@ func NewLibreHistorianPortHandler(loggingHook string, libreHistorianPortDF ports
 }
 
 // Connect calls Connect on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) Connect() error {
+func (h *LibreHistorianDFService) Connect() error {
 	return h.libreHistorianPortDF.Connect()
 }
 
 // Close calls Close on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) Close() error {
+func (h *LibreHistorianDFService) Close() error {
 	return h.libreHistorianPortDF.Close()
 }
 
 // AddDataPointRaw calls AddDataPointRaw on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
+func (h *LibreHistorianDFService) AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error {
 	return h.libreHistorianPortDF.AddDataPointRaw(measurement, tags, fields, ts)
 }
 
 // AddEqPropDataPoint calls AddEqPropDataPoint on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error {
-	return h.libreHistorianPortDF.AddEqPropDataPoint(measurement, eqId, eqName, propId, propName, propValue, ts)
+func (h *LibreHistorianDFService) AddEqPropDataPoint(measurement string, eqID string, eqName string, propID string, propName string, propValue interface{}, ts time.Time) error {
+	return h.libreHistorianPortDF.AddEqPropDataPoint(measurement, eqID, eqName, propID, propName, propValue, ts)
 }
 
 // QueryRaw calls QueryRaw on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) QueryRaw(query string) *dataframe.DataFrame {
+func (h *LibreHistorianDFService) QueryRaw(query string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
-		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryRaw in %s", time.Since(start))
+		msg := fmt.Sprintf("LibreHistorianDFService executed QueryRaw in %s", time.Since(start))
 		if h.IsLibreLogger() {
 			h.LogDebug(msg)
 		} else {
@@ -88,10 +88,10 @@ func (h *LibreHistorianPortHandler) QueryRaw(query string) *dataframe.DataFrame 
 }
 
 // QueryRecentPointHistory calls QueryRecentPointHistory on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame {
+func (h *LibreHistorianDFService) QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
-		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryRecentPointHistory in %s", time.Since(start))
+		msg := fmt.Sprintf("LibreHistorianDFService executed QueryRecentPointHistory in %s", time.Since(start))
 		if h.IsLibreLogger() {
 			h.LogDebug(msg)
 		} else {
@@ -113,10 +113,10 @@ func (h *LibreHistorianPortHandler) QueryRecentPointHistory(backTimeToken string
 }
 
 // QueryLatestFromPointHistory calls QueryLatestFromPointHistory on the LibreHistorianPortDF instance
-func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame {
+func (h *LibreHistorianDFService) QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame {
 	start := time.Now()
 	defer func() {
-		msg := fmt.Sprintf("LibreHistorianPortHandler executed QueryLatestFromPointHistory in %s", time.Since(start))
+		msg := fmt.Sprintf("LibreHistorianDFService executed QueryLatestFromPointHistory in %s", time.Since(start))
 		if h.IsLibreLogger() {
 			h.LogDebug(msg)
 		} else {
@@ -140,7 +140,7 @@ func (h *LibreHistorianPortHandler) QueryLatestFromPointHistory(pointName string
 }
 
 // IsLibreLogger returns true when using the LibreLogger
-func (h *LibreHistorianPortHandler) IsLibreLogger() bool {
+func (h *LibreHistorianDFService) IsLibreLogger() bool {
 	return h.islibreLogger
 }
 
