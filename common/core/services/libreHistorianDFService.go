@@ -18,6 +18,8 @@ type LibreHistorianDFService struct {
 	islibreLogger        bool
 }
 
+const errorMessageImproperColumnType = "improper column type, expected %s; got %s"
+
 // NewLibreHistorianDFService creates a new LibreHistorianDFService with a logger hook and LibreHistorianPortDF
 func NewLibreHistorianDFService(loggingHook string, libreHistorianPortDF ports.LibreHistorianPortDF) (result LibreHistorianDFService) {
 	result = LibreHistorianDFService{
@@ -158,15 +160,18 @@ func validateDataframe(df *dataframe.DataFrame) error {
 		switch n {
 		case "Tag", "Svalue":
 			if types[i] != series.String {
-				return errors.New("improper column type. '" + n + "' Expected 'String'")
+				msg := fmt.Sprintf(errorMessageImproperColumnType, "'String'", n)
+				return errors.New(msg)
 			}
 		case "Dvalue":
 			if !(types[i] == series.Int || types[i] == series.Float) {
-				return errors.New("improper column type. '" + n + "' Expected 'Int' or 'Float'")
+				msg := fmt.Sprintf(errorMessageImproperColumnType, "'Int' or 'Float'", n)
+				return errors.New(msg)
 			}
 		case "Timestamp", "Quality":
 			if types[i] != series.Int {
-				return errors.New("improper column type. '" + n + "' Expected 'Int'")
+				msg := fmt.Sprintf(errorMessageImproperColumnType, "'Int'", n)
+				return errors.New(msg)
 			}
 		default:
 			return errors.New("improper dataframe column name. '" + n + "'.")
