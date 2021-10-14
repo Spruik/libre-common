@@ -17,11 +17,22 @@ type LibreHistorianPortDF interface {
 
 	AddDataPointRaw(measurement string, tags map[string]string, fields map[string]interface{}, ts time.Time) error
 
-	AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error
+	AddEqPropDataPoint(point AddEqPropDataPointParams) error
 
 	QueryRaw(query string) *dataframe.DataFrame
 
 	QueryRecentPointHistory(backTimeToken string, pointName string) *dataframe.DataFrame
 
 	QueryLatestFromPointHistory(pointName string) *dataframe.DataFrame
+}
+
+// AddEqPropDataPointParams are the parameters for AddEqPropDataPoint
+type AddEqPropDataPointParams struct {
+	Measurement string
+	EqID        string
+	EqName      string
+	PropID      string
+	PropName    string
+	PropValue   interface{}
+	Timestamp   time.Time
 }

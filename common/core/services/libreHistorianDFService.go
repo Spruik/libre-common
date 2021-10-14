@@ -60,8 +60,8 @@ func (h *LibreHistorianDFService) AddDataPointRaw(measurement string, tags map[s
 }
 
 // AddEqPropDataPoint calls AddEqPropDataPoint on the LibreHistorianPortDF instance
-func (h *LibreHistorianDFService) AddEqPropDataPoint(measurement string, eqID string, eqName string, propID string, propName string, propValue interface{}, ts time.Time) error {
-	return h.libreHistorianPortDF.AddEqPropDataPoint(measurement, eqID, eqName, propID, propName, propValue, ts)
+func (h *LibreHistorianDFService) AddEqPropDataPoint(point ports.AddEqPropDataPointParams) error {
+	return h.libreHistorianPortDF.AddEqPropDataPoint(point)
 }
 
 // QueryRaw calls QueryRaw on the LibreHistorianPortDF instance

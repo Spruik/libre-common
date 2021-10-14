@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Spruik/libre-common/common/core/ports"
 	"github.com/Spruik/libre-common/common/core/services"
 	"github.com/go-gota/gota/dataframe"
 	"github.com/go-gota/gota/series"
@@ -241,7 +242,7 @@ func (t MockLibreHistorainDF) AddDataPointRaw(measurement string, tags map[strin
 	return nil
 }
 
-func (t MockLibreHistorainDF) AddEqPropDataPoint(measurement string, eqId string, eqName string, propId string, propName string, propValue interface{}, ts time.Time) error {
+func (t MockLibreHistorainDF) AddEqPropDataPoint(point ports.AddEqPropDataPointParams) error {
 	return nil
 }
 
