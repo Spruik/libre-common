@@ -31,14 +31,14 @@ var LibreHistorianDFServiceTestCases = []LibreHistorianDFServiceTestCase{
 		Name:    "Passing Dataframe - Float Dvalue",
 		IsError: false,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
 			series.New([]string{"Example Tag"}, series.String, "Tag"),
@@ -52,14 +52,14 @@ var LibreHistorianDFServiceTestCases = []LibreHistorianDFServiceTestCase{
 		Name:    "Passing Dataframe - Int Dvalue",
 		IsError: false,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
 			series.New([]string{"Example Tag"}, series.String, "Tag"),
@@ -70,19 +70,147 @@ var LibreHistorianDFServiceTestCases = []LibreHistorianDFServiceTestCase{
 		),
 	},
 	{
+		Name:    "Failing Dataframe - Extra Column",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]int{1}, series.Int, "Quality"),
+			series.New([]int{123456}, series.Int, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
 		Name:    "Failing Dataframe - Missing Tag",
 		IsError: true,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]int{1}, series.Int, "Quality"),
+			series.New([]float32{123.456}, series.Float, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Missing Timestamp",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1}, series.Int, "Quality"),
+			series.New([]float64{123.456}, series.Float, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Missing Svalue",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]int{1}, series.Int, "Quality"),
+			series.New([]int{123456}, series.Int, "Dvalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Missing Dvalue",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]int{1}, series.Int, "Quality"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Missing Quality",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]int{123456}, series.Int, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"Extra Column"}, series.String, "An extra Column of data"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Tag Wrong Datatype",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]int{1}, series.Int, "Tag"),
 			series.New([]int{1634159622}, series.Int, "Timestamp"),
 			series.New([]int{1}, series.Int, "Quality"),
 			series.New([]float32{123.456}, series.Float, "Dvalue"),
@@ -90,83 +218,129 @@ var LibreHistorianDFServiceTestCases = []LibreHistorianDFServiceTestCase{
 		),
 	},
 	{
-		Name:    "Failing Dataframe - Missing Timestamp",
+		Name:    "Failing Dataframe - Timestamp Wrong Datatype",
 		IsError: true,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
 			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]string{"1634159622"}, series.String, "Timestamp"),
 			series.New([]int{1}, series.Int, "Quality"),
-			series.New([]float64{123.456}, series.Float, "Dvalue"),
+			series.New([]float32{123.456}, series.Float, "Dvalue"),
 			series.New([]string{"test"}, series.String, "Svalue"),
 		),
 	},
 	{
-		Name:    "Failing Dataframe - Missing Svalue",
+		Name:    "Failing Dataframe - Quality Wrong Datatype",
 		IsError: true,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1634159622}, series.Int, "Timestamp"),
+			series.New([]float64{123.456}, series.Float, "Quality"),
+			series.New([]float32{123.456}, series.Float, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - DValue Wrong Datatype",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
 			series.New([]string{"Example Tag"}, series.String, "Tag"),
 			series.New([]int{1634159622}, series.Int, "Timestamp"),
 			series.New([]int{1}, series.Int, "Quality"),
-			series.New([]int{123456}, series.Int, "Dvalue"),
+			series.New([]bool{false}, series.Bool, "Dvalue"),
+			series.New([]string{"test"}, series.String, "Svalue"),
 		),
 	},
 	{
-		Name:    "Failing Dataframe - Missing Dvalue",
+		Name:    "Failing Dataframe - SValue Wrong Datatype",
 		IsError: true,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
 			series.New([]string{"Example Tag"}, series.String, "Tag"),
 			series.New([]int{1634159622}, series.Int, "Timestamp"),
 			series.New([]int{1}, series.Int, "Quality"),
-			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]float32{123.456}, series.Float, "Dvalue"),
+			series.New([]float32{123.456}, series.Float, "Svalue"),
 		),
 	},
 	{
-		Name:    "Failing Dataframe - Missing Quality",
+		Name:    "Failing Dataframe - Multiple Wrong Datatype",
 		IsError: true,
 		QueryRaw: QueryRaw{
-			Query: "Test",
+			Query: "test",
 		},
 		QueryRecentPointHistory: QueryRecentPointHistory{
-			BackTimeToken: "Test",
-			PointName:     "Test",
+			BackTimeToken: "test",
+			PointName:     "test",
 		},
 		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
-			PointName: "Test",
+			PointName: "test",
 		},
 		ExpectedResult: dataframe.New(
-			series.New([]string{"Example Tag"}, series.String, "Tag"),
+			series.New([]int{1}, series.Int, "Tag"),
 			series.New([]int{1634159622}, series.Int, "Timestamp"),
-			series.New([]int{123456}, series.Int, "Dvalue"),
-			series.New([]string{"test"}, series.String, "Svalue"),
+			series.New([]string{"test"}, series.String, "Quality"),
+			series.New([]float32{123.456}, series.Float, "Dvalue"),
+			series.New([]float32{123.456}, series.Float, "Svalue"),
+		),
+	},
+	{
+		Name:    "Failing Dataframe - Multiple Same",
+		IsError: true,
+		QueryRaw: QueryRaw{
+			Query: "test",
+		},
+		QueryRecentPointHistory: QueryRecentPointHistory{
+			BackTimeToken: "test",
+			PointName:     "test",
+		},
+		QueryLatestFromPointHistory: QueryLatestFromPointHistory{
+			PointName: "test",
+		},
+		ExpectedResult: dataframe.New(
+			series.New([]string{"test"}, series.String, "Tag"),
+			series.New([]string{"test"}, series.String, "Tag"),
+			series.New([]string{"test"}, series.String, "Tag"),
+			series.New([]string{"test"}, series.String, "Tag"),
+			series.New([]string{"test"}, series.String, "Tag"),
 		),
 	},
 }
@@ -181,6 +355,10 @@ func TestLibreHistorianDFService(t *testing.T) {
 		historinPort := services.NewLibreHistorianDFService("test", MockLibreHistorainDF{
 			Result: result,
 		})
+
+		if err := historinPort.Connect(); err != nil {
+			t.Errorf("%s failed, expected Connect() no error but got %s", tc.Name, err)
+		}
 
 		if tc.QueryRaw.Query != "" {
 			result := historinPort.QueryRaw(tc.QueryRaw.Query)
@@ -208,6 +386,10 @@ func TestLibreHistorianDFService(t *testing.T) {
 			} else if !tc.IsError && result.Err != nil {
 				t.Errorf("%s failed, expected no error but got %s", tc.Name, result.Err)
 			}
+		}
+
+		if err := historinPort.Close(); err != nil {
+			t.Errorf("%s failed, expected Close() no error but got %s", tc.Name, err)
 		}
 	}
 }
