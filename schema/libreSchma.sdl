@@ -588,17 +588,17 @@ enum MachineState {
     Idle
     Starting
     Execute
-    UnHolding
+    Unholding
     Held
     Holding
     Completing
     Complete
-    UnSuspending
+    Unsuspending
     Suspended
     Suspending
     Aborting
     Aborted
-    Cleaning
+    Clearing
     Stopping
 }
 type ReasonCategory  {
