@@ -13,8 +13,12 @@ import (
 
 var stdMessageChan chan domain.StdMessageStruct
 
+var cachedMessages []domain.StdMessageStruct
+var cacheMessageEquipment string
+
 type FakeLibreConnector struct {
-	nextError bool
+	nextError    bool
+	CachedValues map[string][]domain.StdMessageStruct
 }
 
 func (libreConnector FakeLibreConnector) Connect(clientID string) error {
@@ -30,7 +34,18 @@ func (libreConnector FakeLibreConnector) WriteTags(outTagDefs []domain.StdMessag
 }
 
 func (libreConnector FakeLibreConnector) ListenForEdgeTagChanges(c chan domain.StdMessageStruct, changeFilter map[string]interface{}) {
-	panic("implement me")
+	for key, val := range changeFilter {
+		if key == "EQ" {
+			switch v := val.(type) {
+			case string:
+				if v == cacheMessageEquipment {
+					for _, message := range cachedMessages {
+						c <- message
+					}
+				}
+			}
+		}
+	}
 }
 
 func (libreConnector FakeLibreConnector) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
@@ -102,6 +117,8 @@ func (fakeLibreDataStore FakeLibreDataStore) GetAllActiveWorkCalendar() ([]domai
 func TestCalendarService(t *testing.T) {
 	stdMessageChan = make(chan domain.StdMessageStruct)
 
+	testEquipmentName := "Site/Area/Line"
+
 	now := time.Now().UTC()
 	fakeLibreConnector := FakeLibreConnector{}
 	fakeLibreDataStore := FakeLibreDataStore{
@@ -129,7 +146,7 @@ func TestCalendarService(t *testing.T) {
 				Equipment: []domain.Equipment{
 					{
 						Id:          "",
-						Name:        "Site/Area/Line",
+						Name:        testEquipmentName,
 						Description: "",
 					},
 				},
@@ -288,11 +305,11 @@ func TestCalendarService(t *testing.T) {
 		ItemNameExt:      map[string]string{},
 		ItemId:           "",
 		ItemValue:        string(domain.PlannedBusyTime),
-		ItemDataType:     "STRING",
+		ItemDataType:     domain.DataTypeString,
 		TagQuality:       1,
 		Err:              nil,
 		ChangedTimestamp: time.Now().UTC(),
-		Category:         "TAGDATA",
+		Category:         domain.SVCRQST_TAGDATA,
 		Topic:            fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarCategory",
 	}
 
@@ -303,11 +320,11 @@ func TestCalendarService(t *testing.T) {
 		ItemNameExt:      map[string]string{},
 		ItemId:           "",
 		ItemValue:        "Shift A",
-		ItemDataType:     "STRING",
+		ItemDataType:     domain.DataTypeString,
 		TagQuality:       1,
 		Err:              nil,
 		ChangedTimestamp: time.Now().UTC(),
-		Category:         "TAGDATA",
+		Category:         domain.SVCRQST_TAGDATA,
 		Topic:            fakeLibreDataStore.WorkCalendars[0].Equipment[0].Name + "/workCalendarEntry",
 	}
 
@@ -360,6 +377,11 @@ func TestCalendarService(t *testing.T) {
 	if GetCalendarServiceInstance() != service {
 		t.Errorf("TestCalendarService get/set serivceInstance failed")
 	}
+
+	// Check Cache Values
+	cachedMessages = []domain.StdMessageStruct{expectedCategoryMessage, expectedEntryMessage}
+	cacheMessageEquipment = testEquipmentName
+	service.Start()
 
 	t.Logf("Complete CalendarService")
 }

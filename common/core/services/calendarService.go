@@ -10,6 +10,9 @@ import (
 	libreLogger "github.com/Spruik/libre-logging"
 )
 
+const WorkCalendarCategory = "workCalendarCategory"
+const WorkCalendarEntry = "workCalendarEntry"
+
 type calendarService struct {
 	dataStore      ports.CalendarPort
 	publish        ports.EdgeConnectorPort
@@ -26,6 +29,10 @@ type calendarService struct {
 
 	//inherit logging functions
 	libreLogger.LoggingEnabler
+
+	// Hydrate Cache Subscriptions
+	hydrateUpdate chan domain.StdMessageStruct
+	updates       int
 }
 
 // NewCalendarService bootstraps and creates a new Calendar Service
@@ -82,7 +89,87 @@ func (s *calendarService) GetAllActiveWorkCalendar() ([]domain.WorkCalendar, err
 	return s.dataStore.GetAllActiveWorkCalendar()
 }
 
+func (s *calendarService) hydrateCache() error {
+
+	// Initialize variables to track hydration
+	s.hydrateUpdate = make(chan domain.StdMessageStruct, 10)
+	s.updates = 0
+
+	// Get All the Work Calendars
+	workCalendars, err := s.dataStore.GetAllActiveWorkCalendar()
+	if err != nil {
+		s.LogErrorf("calendarService failed to hydrate cache, expected no error getting AllActiveWorkCalendar; got %s", err)
+		return err
+	}
+
+	// Find the Unique Equipment
+	equipment := make([]domain.Equipment, 0)
+	for _, workCalendar := range workCalendars {
+		equipment = append(equipment, workCalendar.Equipment...)
+	}
+	deduplicateEquipment := domain.DeduplicateEquipment(equipment)
+
+	// Early return if no equipment defined
+	if len(deduplicateEquipment) == 0 {
+		close(s.hydrateUpdate)
+		return nil
+	}
+
+	// Subscribe to Tag Value Change
+	for _, equipment := range deduplicateEquipment {
+		changeFilter := map[string]interface{}{
+			"EQ": equipment.Name,
+		}
+		s.publish.ListenForEdgeTagChanges(s.hydrateUpdate, changeFilter)
+	}
+
+	// Wait for All Responses or timeout
+	expectedMessageCount := len(deduplicateEquipment) * 2
+	s.listenForHyrdateResponses(expectedMessageCount)
+
+	if s.updates != expectedMessageCount {
+		s.LogWarnf("Failed to hydrate cache for all equipment")
+	}
+
+	s.updates = 0
+	close(s.hydrateUpdate)
+	return nil
+}
+
+func (s *calendarService) listenForHyrdateResponses(expectedMessageCount int) {
+	for {
+		select {
+		case update := <-s.hydrateUpdate:
+			if update.ItemName == WorkCalendarEntry {
+				s.cacheEntries[update.OwningAssetId] = update.ItemValue.(string)
+				s.updates++
+			}
+
+			if update.ItemName == WorkCalendarCategory && update.ItemDataType == domain.DataTypeString {
+				valueAsString := update.ItemValue.(string)
+				switch valueAsString {
+				case string(domain.PlannedBusyTime):
+					s.cacheType[update.OwningAssetId] = domain.PlannedBusyTime
+				case string(domain.PlannedDowntime):
+					s.cacheType[update.OwningAssetId] = domain.PlannedDowntime
+				case string(domain.PlannedShutdown):
+					s.cacheType[update.OwningAssetId] = domain.PlannedShutdown
+				}
+				s.updates++
+			}
+
+			// If we have hit all of them we can exit early
+			if s.updates == expectedMessageCount {
+				return
+			}
+		case <-time.After(3 * time.Second):
+			return
+		}
+	}
+}
+
 func (s *calendarService) Start() (err error) {
+	s.hydrateCache()
 	if s.ticker == nil {
 		s.ticker = time.NewTicker(s.tickerDuration)
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
@@ -152,16 +239,16 @@ func (s *calendarService) publishWorkCalendarType(equip domain.Equipment, calend
 	msg := domain.StdMessageStruct{
 		OwningAsset:      equip.Name,
 		OwningAssetId:    equip.Id,
-		ItemName:         "workCalendarCategory",
+		ItemName:         WorkCalendarCategory,
 		ItemNameExt:      map[string]string{},
 		ItemId:           "",
 		ItemValue:        string(calendarEntryType),
-		ItemDataType:     "STRING",
+		ItemDataType:     domain.DataTypeString,
 		TagQuality:       1,
 		Err:              nil,
 		ChangedTimestamp: time.Now().UTC(),
-		Category:         "TAGDATA",
-		Topic:            equip.Name + "/workCalendarCategory",
+		Category:         domain.SVCRQST_TAGDATA,
+		Topic:            equip.Name + "/" + WorkCalendarCategory,
 	}
 
 	if lastState := s.cacheType[equip.Id]; lastState != calendarEntryType {
@@ -174,28 +261,28 @@ func (s *calendarService) publishWorkCalendarType(equip domain.Equipment, calend
 	}
 }
 
-func (s *calendarService) publishWorkCalendarEntryNames(equip domain.Equipment, calendarEntries string) {
+func (s *calendarService) publishWorkCalendarEntryNames(equip domain.Equipment, calendarEntry string) {
 	msg := domain.StdMessageStruct{
 		OwningAsset:      equip.Name,
 		OwningAssetId:    equip.Id,
-		ItemName:         "workCalendarEntry",
+		ItemName:         WorkCalendarEntry,
 		ItemNameExt:      map[string]string{},
 		ItemId:           "",
-		ItemValue:        calendarEntries,
-		ItemDataType:     "STRING",
+		ItemValue:        calendarEntry,
+		ItemDataType:     domain.DataTypeString,
 		TagQuality:       1,
 		Err:              nil,
 		ChangedTimestamp: time.Now().UTC(),
-		Category:         "TAGDATA",
-		Topic:            equip.Name + "/workCalendarEntry",
+		Category:         domain.SVCRQST_TAGDATA,
+		Topic:            equip.Name + "/" + WorkCalendarEntry,
 	}
 
-	if lastState := s.cacheEntries[equip.Id]; lastState != calendarEntries {
+	if lastState := s.cacheEntries[equip.Id]; lastState != calendarEntry {
 		msg.ItemOldValue = string(lastState)
 		err := s.publish.SendStdMessage(msg)
 		if err != nil {
 			s.LogErrorf("failed to send message %v; got %s", msg, err)
 		}
-		s.cacheEntries[equip.Id] = calendarEntries
+		s.cacheEntries[equip.Id] = calendarEntry
 	}
 }
