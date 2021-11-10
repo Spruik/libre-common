@@ -381,7 +381,22 @@ func TestCalendarService(t *testing.T) {
 	// Check Cache Values
 	cachedMessages = []domain.StdMessageStruct{expectedCategoryMessage, expectedEntryMessage}
 	cacheMessageEquipment = testEquipmentName
-	service.Start()
+	err = service.Start()
+	if err != nil {
+		t.Errorf("TestCalendarService failed, expected no error; got %s", err)
+	}
+	time.Sleep(2 * time.Second)
+
+breaker:
+	for {
+		select {
+		case actualMessage := <-stdMessageChan:
+			t.Errorf("Expected no messages to be produced; but got %v\n", actualMessage)
+			break breaker
+		case <-time.After(3 * time.Second):
+			break breaker
+		}
+	}
 
 	t.Logf("Complete CalendarService")
 }
