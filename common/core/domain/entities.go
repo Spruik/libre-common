@@ -91,3 +91,21 @@ type DataSubscription struct {
 	Status         string                `json:"status,omitempty"`
 	Channel        chan *json.RawMessage `json:"-"`
 }
+
+func DeduplicateEquipment(equipments []Equipment) (result []Equipment) {
+	for _, equipment := range equipments {
+		if !ContainsEquipment(result, equipment) {
+			result = append(result, equipment)
+		}
+	}
+	return result
+}
+
+func ContainsEquipment(equipments []Equipment, equipment Equipment) bool {
+	for i := range equipments {
+		if equipments[i].Id == equipment.Id {
+			return true
+		}
+	}
+	return false
+}
