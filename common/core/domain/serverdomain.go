@@ -62,6 +62,8 @@ type StdMessageStruct struct {
 	History           *dataframe.DataFrame `json:"History,omitempty"`
 }
 
+const DataTypeString = "STRING"
+
 func ConvertTypes(messageStruct StdMessageStruct) StdMessageStruct {
 	switch messageStruct.ItemDataType {
 	case "FLOAT":
@@ -121,7 +123,7 @@ func ConvertPropertyValueStringToTypedValue(propType string, rawVal interface{})
 	case string:
 		var strVal string = fmt.Sprintf("%s", rawVal)
 		switch propType {
-		case "STRING":
+		case DataTypeString:
 			val = rawVal
 		case "BOOL":
 			if strVal == "" {
