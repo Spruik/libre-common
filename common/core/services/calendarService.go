@@ -180,10 +180,11 @@ func (s *calendarService) Start() (err error) {
 		}
 		s.LogInfo("calendar service started")
 		go func() {
+		outside:
 			for {
 				select {
 				case <-s.eval:
-					return
+					break outside
 				case t := <-s.ticker.C:
 					s.LogDebugf("Tick at %s\n", t)
 					s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
@@ -193,6 +194,8 @@ func (s *calendarService) Start() (err error) {
 					s.calculateCalendars()
 				}
 			}
+			s.ticker = nil // Safe to nil this as we should no longer be listening to events
+			s.LogInfo("calendar service stopped")
 		}()
 	} else {
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()
@@ -207,7 +210,6 @@ func (s *calendarService) Start() (err error) {
 
 func (s *calendarService) Stop() {
 	s.ticker.Stop()
-	s.LogInfo("calendar service stopped")
 	s.eval <- true
 }
 
