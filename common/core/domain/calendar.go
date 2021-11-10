@@ -291,7 +291,7 @@ type timeFilter struct {
 	allYearDays  bool
 }
 
-func (timeFilter *timeFilter) compare(time time.Time) bool {
+func (timeFilter *timeFilter) compareTime(time time.Time) bool {
 	if !timeFilter.allSecond && !intExists(timeFilter.def.BySecond, time.Second()) {
 		return false
 	}
@@ -301,6 +301,15 @@ func (timeFilter *timeFilter) compare(time time.Time) bool {
 	}
 
 	if !timeFilter.allHours && !intExists(timeFilter.def.ByHour, time.Hour()) {
+		return false
+	}
+
+	return true
+}
+
+func (timeFilter *timeFilter) compare(time time.Time) bool {
+
+	if !timeFilter.compareTime(time) {
 		return false
 	}
 
