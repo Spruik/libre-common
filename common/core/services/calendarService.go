@@ -92,7 +92,7 @@ func (s *calendarService) GetAllActiveWorkCalendar() ([]domain.WorkCalendar, err
 func (s *calendarService) hydrateCache() error {
 
 	// Initialize variables to track hydration
-	s.hydrateUpdate = make(chan domain.StdMessageStruct, 10)
+	s.hydrateUpdate = make(chan domain.StdMessageStruct, 100)
 	s.updates = 0
 
 	// Get All the Work Calendars
@@ -118,7 +118,8 @@ func (s *calendarService) hydrateCache() error {
 	// Subscribe to Tag Value Change
 	for _, equipment := range deduplicateEquipment {
 		changeFilter := map[string]interface{}{
-			"EQ": equipment.Name,
+			"EQ":     equipment.Name,
+			"Client": equipment.Name,
 		}
 		s.publish.ListenForEdgeTagChanges(s.hydrateUpdate, changeFilter)
 	}
@@ -129,6 +130,14 @@ func (s *calendarService) hydrateCache() error {
 
 	if s.updates != expectedMessageCount {
 		s.LogWarnf("Failed to hydrate cache for all equipment")
+	}
+
+	// Unsubscribe from equipment
+	for _, equipment := range deduplicateEquipment {
+		err := s.publish.StopListeningForTagChanges(equipment.Name)
+		if err != nil {
+			s.LogDebugf("calendarService failed to unsubscribe to cache hydrate for %s, expected no error; got %s", equipment.Name, err)
+		}
 	}
 
 	s.updates = 0

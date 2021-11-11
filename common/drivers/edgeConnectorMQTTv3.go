@@ -27,17 +27,20 @@ type edgeConnectorMQTTv3 struct {
 	mqttClient     *mqtt.Client
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
-	config         map[string]string
 
 	topicTemplate    string
 	topicParseRegExp *regexp.Regexp
 	tagDataCategory  string
 	eventCategory    string
+
+	// Keep track of client topics so we can stop listening/unsubscribe by client
+	clientTopics map[string][]string
 }
 
 func NewEdgeConnectorMQTTv3(configHook string) *edgeConnectorMQTTv3 {
 	s := edgeConnectorMQTTv3{
-		mqttClient: nil,
+		mqttClient:   nil,
+		clientTopics: make(map[string][]string),
 	}
 	s.ChangeChannels = make(map[string]chan domain.StdMessageStruct)
 	s.SetConfigCategory(configHook)
@@ -173,10 +176,12 @@ func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageSt
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
 	//s.mqttClient.Router = mqtt.NewSingleHandlerRouter(s.tagChangeHandler)
+	topics := []string{}
 	//need to subscribe to the topics in the changeFilter
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
 			topic := s.buildTopicString(s.tagDataCategory, val)
+			topics = append(topics, topic)
 			err := s.SubscribeToTopic(topic)
 			if err == nil {
 				s.LogInfof("subscribed to topic %s", topic)
@@ -184,6 +189,7 @@ func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageSt
 				panic(err)
 			}
 			topic = s.buildTopicString(s.eventCategory, val)
+			topics = append(topics, topic)
 			err = s.SubscribeToTopic(topic)
 			if err == nil {
 				s.LogInfof("subscribed to topic %s", topic)
@@ -192,6 +198,7 @@ func (s *edgeConnectorMQTTv3) ListenForEdgeTagChanges(c chan domain.StdMessageSt
 			}
 		}
 	}
+	s.clientTopics[clientName] = topics
 }
 
 func (s *edgeConnectorMQTTv3) buildTopicString(category string, changeFilerVal interface{}) string {
@@ -234,4 +241,64 @@ func (s *edgeConnectorMQTTv3) tagChangeHandler(client mqtt.Client, m mqtt.Messag
 	} else {
 		s.LogErrorf("Failed to unmarchal the payload of the incoming message: %s [%s]", m.Payload, err)
 	}
+}
+
+// StopListeningForTagChanges for a given Client, removes any orphaned mqtt topic subscriptions that would be left after removing this client and removes the index into the change channel
+func (s *edgeConnectorMQTTv3) StopListeningForTagChanges(client string) error {
+	// Check if we have any topics against that client
+	topics, exists := s.clientTopics[client]
+	if !exists {
+		return nil
+	}
+
+	// Clear out that entry
+	delete(s.clientTopics, client)
+
+	// Build up List of unsubscribe topics
+	unsubscribeTopics := []string{}
+	for _, topic := range topics {
+		found := false
+		for _, arrayTopics := range s.clientTopics {
+			for _, t := range arrayTopics {
+				if topic == t {
+					// Keep
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			unsubscribeTopics = append(unsubscribeTopics, topic)
+		}
+	}
+
+	// Unsubscribe
+	c := *s.mqttClient
+	token := c.Unsubscribe(unsubscribeTopics...)
+
+	// Block until Done or Timeout
+out:
+	for {
+		select {
+		case <-token.Done():
+			if token.Error() != nil {
+				s.LogDebugf("edgeConnectorMQTTv3 tried to unsubscribe from topics %s expected no error; got %s", unsubscribeTopics, token.Error())
+			}
+			break out
+		case <-time.After(time.Second * 3):
+			break out
+		}
+	}
+
+	// Cleanup the Change Channel
+	_, changeChangeExists := s.ChangeChannels[client]
+	if changeChangeExists {
+		delete(s.ChangeChannels, client)
+	}
+
+	// Serve up error (if it exists)
+	return token.Error()
 }

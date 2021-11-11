@@ -1,9 +1,10 @@
 package services
 
 import (
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	"github.com/Spruik/libre-common/common/core/ports"
-	"time"
 )
 
 type edgeConnectorService struct {
@@ -45,4 +46,8 @@ func (s *edgeConnectorService) ListenForEdgeTagChanges(c chan domain.StdMessageS
 }
 func (s *edgeConnectorService) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	return s.port.GetTagHistory(startTS, endTS, inTagDefs)
+}
+
+func (s *edgeConnectorService) StopListeningForTagChanges(client string) error {
+	return s.port.StopListeningForTagChanges(client)
 }
