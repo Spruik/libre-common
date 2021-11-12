@@ -3,7 +3,6 @@ package drivers
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 	"time"
 
@@ -20,14 +19,15 @@ type edgeConnectorNATS struct {
 	libreConfig.ConfigurationEnabler
 
 	natsConn       *nats.Conn
-	config         map[string]string
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
 
-	topicTemplate    string
-	topicParseRegExp *regexp.Regexp
-	tagDataCategory  string
-	eventCategory    string
+	topicTemplate   string
+	tagDataCategory string
+	eventCategory   string
+
+	// Keep track of client topics so we can stop listening/unsubscribe by client
+	clientTopics map[string][]*nats.Subscription
 }
 
 //Initialize edge connectors for NATS
@@ -117,7 +117,7 @@ func (s *edgeConnectorNATS) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	}
 	for _, val := range changeFilter {
 		topic := s.buildTopicString(val)
-		err := s.SubscribeToTopic(topic)
+		err := s.SubscribeToTopic(clientName, topic)
 		if err == nil {
 			s.LogInfof("Subscribed to topic %s", topic)
 		} else {
@@ -134,12 +134,12 @@ func (s *edgeConnectorNATS) GetTagHistory(startTS time.Time, endTS time.Time, in
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *edgeConnectorNATS) SubscribeToTopic(topic string) error {
+func (s *edgeConnectorNATS) SubscribeToTopic(client string, topic string) error {
 	js, err := s.natsConn.JetStream()
 	if err != nil {
 		panic("Failed to obtain JetStream")
 	}
-	js.Subscribe(topic, func(msg *nats.Msg) {
+	subscription, err := js.Subscribe(topic, func(msg *nats.Msg) {
 		// put the message data into the ItemValue field of the StdMessageStruct
 		// ToDo: Can we use a template to decode the Subject string?
 		// expected subjects are Libre.subscriptions.workflowSpecification and
@@ -179,13 +179,40 @@ func (s *edgeConnectorNATS) SubscribeToTopic(topic string) error {
 		//fmt.Println(value)
 		//log.Printf("monitor service subscribes from subject:%s\n", msg.Subject)
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+
+	// Store so we can later unsubscribe
+	s.clientTopics[client] = append(s.clientTopics[client], subscription)
+
+	return err
 }
 
 func (s *edgeConnectorNATS) buildTopicString(changeFilterVal interface{}) string {
 	topic := fmt.Sprintf("%s", changeFilterVal)
 	return topic
+}
+
+// StopListeningForTagChanges for a given topic
+func (s *edgeConnectorNATS) StopListeningForTagChanges(client string) (err error) {
+	subscriptions, exists := s.clientTopics[client]
+
+	// Return early if no subscriptions for the client
+	if !exists {
+		return nil
+	}
+
+	// Unsubscribe
+	for _, subscription := range subscriptions {
+		err = subscription.Unsubscribe()
+		if err != nil {
+			s.LogDebugf("edgeConnectorNATS unsubscribed from %s expected no error; got %s", subscription.Subject, err)
+		}
+	}
+
+	// Remove map entry in subscribtions
+	delete(s.clientTopics, client)
+
+	// Remove map entry in message channel
+	delete(s.ChangeChannels, client)
+
+	return err
 }

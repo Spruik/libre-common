@@ -22,6 +22,10 @@ import (
 
 // ErrorMessageFailedToConnect is a common error message when failing to connect
 const ErrorMessageFailedToConnect = "Failed to connect to %s: %s"
+const errorMessageFailedConfiguration = "edgeConnectorMQTT failed to find configuration data for MQTT connection"
+const topicEQName = "<EQNAME>"
+const topicTagName = "<TAGNAME>"
+const topicCategory = "<CATEGORY>"
 
 type edgeConnectorMQTT struct {
 	//inherit logging functions
@@ -35,7 +39,6 @@ type edgeConnectorMQTT struct {
 
 	ChangeChannels map[string]chan domain.StdMessageStruct
 	singleChannel  chan domain.StdMessageStruct
-	config         map[string]string
 
 	topicTemplate    string
 	topicParseRegExp *regexp.Regexp
@@ -43,11 +46,15 @@ type edgeConnectorMQTT struct {
 	eventCategory    string
 
 	ctxCancel context.CancelFunc
+
+	// Keep track of client topics so we can stop listening/unsubscribe by client
+	clientTopics map[string][]string
 }
 
 func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 	s := edgeConnectorMQTT{
-		mqttClient: nil,
+		mqttClient:   nil,
+		clientTopics: make(map[string][]string),
 	}
 	s.ChangeChannels = make(map[string]chan domain.StdMessageStruct)
 	s.SetConfigCategory(configHook)
@@ -60,8 +67,8 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 	s.tagDataCategory, _ = s.GetConfigItemWithDefault("TAG_DATA_CATEGORY", "EdgeTagChange")
 	s.eventCategory, _ = s.GetConfigItemWithDefault("EVENT_CATEGORY", "EdgeEvent")
 	topicRE := s.topicTemplate
-	topicRE = strings.Replace(topicRE, "<EQNAME>", "(?P<EQNAME>[A-Za-z0-9_\\/]*)", -1)
-	topicRE = strings.Replace(topicRE, "<TAGNAME>", "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
+	topicRE = strings.Replace(topicRE, topicEQName, "(?P<EQNAME>[A-Za-z0-9_\\/]*)", -1)
+	topicRE = strings.Replace(topicRE, topicTagName, "(?P<TAGNAME>[A-Za-z0-9_]*)", -1)
 	s.topicParseRegExp = regexp.MustCompile(topicRE)
 	return &s
 }
@@ -72,44 +79,7 @@ func NewEdgeConnectorMQTT(configHook string) *edgeConnectorMQTT {
 //
 //Connect implements the interface by creating an MQTT client
 func (s *edgeConnectorMQTT) Connect(clientId string) error {
-	var err error
-	var server, user, pwd, svcName string
-
-	//Grab server address config
-	server, err = s.GetConfigItem("MQTT_SERVER")
-	if err == nil {
-		s.LogDebug("Config found:  MQTT_SERVER: " + server)
-	} else {
-		s.LogError("Config read failed:  MQTT_SERVER", err)
-		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
-	}
-
-	//Grab password
-	pwd, err = s.GetConfigItem("MQTT_PWD")
-	if err == nil {
-		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
-	} else {
-		s.LogError("Config read failed:  MQTT_PWD", err)
-		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
-	}
-
-	//Grab user
-	user, err = s.GetConfigItem("MQTT_USER")
-	if err == nil {
-		s.LogDebug("Config found:  MQTT_USER: " + user)
-	} else {
-		s.LogError("Config read failed:  MQTT_USER", err)
-		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
-	}
-
-	//Grab service name
-	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
-	if err == nil {
-		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
-	} else {
-		s.LogError("Config read failed:  MQTT_SVC_NAME", err)
-		panic("edgeConnectorMQTT failed to find configuration data for MQTT connection")
-	}
+	server, user, pwd, _, _ := s.getConfiguration()
 
 	MQTTServerURL, err := url.Parse(server)
 
@@ -252,9 +222,13 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 	s.LogDebugf("ListenForPlcTagChanges called for Client %s", clientName)
 	//declare the handler for received messages
 	//need to subscribe to the topics in the changeFilter
+
+	topics := []string{}
+
 	for key, val := range changeFilter {
 		if strings.Contains(key, "EQ") {
 			topic := s.buildSubscriptionTopicString(s.tagDataCategory, val)
+			topics = append(topics, topic)
 			err := s.SubscribeToTopic(topic)
 			if err == nil {
 				s.LogInfof("subscribed to topic %s", topic)
@@ -262,6 +236,7 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 				panic(err)
 			}
 			topic = s.buildSubscriptionTopicString(s.eventCategory, val)
+			topics = append(topics, topic)
 			err = s.SubscribeToTopic(topic)
 			if err == nil {
 				s.LogInfof("subscribed to topic %s", topic)
@@ -270,6 +245,100 @@ func (s *edgeConnectorMQTT) ListenForEdgeTagChanges(c chan domain.StdMessageStru
 			}
 		}
 	}
+
+	s.clientTopics[clientName] = topics
+}
+
+// StopListeningForTagChanges for a given Client, removes any orphaned mqtt topic subscriptions that would be left after removing this client and removes the index into the change channel
+func (s *edgeConnectorMQTT) StopListeningForTagChanges(client string) error {
+	// Check if we have any topics against that client
+	topics, exists := s.clientTopics[client]
+	if !exists {
+		return nil
+	}
+
+	// Clear out that entry
+	delete(s.clientTopics, client)
+
+	// Build up List of unsubscribe topics
+	unsubscribeTopics := s.getUniqueTopics(topics)
+	unsubscribeStruct := &paho.Unsubscribe{
+		Topics: unsubscribeTopics,
+	}
+
+	// Unsubscribe
+	_, err := s.mqttConnectionManager.Unsubscribe(context.Background(), unsubscribeStruct)
+	if err != nil {
+		s.LogDebugf("edgeConnectorMQTT tried to unsubscribe from topics %s expected no error; got %s", unsubscribeTopics, err)
+	}
+
+	// Cleanup the Change Channel
+	delete(s.ChangeChannels, client)
+
+	return err
+}
+
+// getUniqueTopics gets the topics that only exist in the provided argument and in any of this edgeConnectorMQTT subscriptions
+func (s *edgeConnectorMQTT) getUniqueTopics(topics []string) (result []string) {
+	for _, topic := range topics {
+		found := false
+		for _, arrayTopics := range s.clientTopics {
+			for _, t := range arrayTopics {
+				if topic == t {
+					// Keep
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+		if !found {
+			result = append(result, topic)
+		}
+	}
+	return result
+}
+
+func (s *edgeConnectorMQTT) getConfiguration() (server string, pwd string, user string, svcName string, err error) {
+	//Grab server address config
+	server, err = s.GetConfigItem("MQTT_SERVER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SERVER: " + server)
+	} else {
+		s.LogError("Config read failed:  MQTT_SERVER", err)
+		panic(errorMessageFailedConfiguration)
+	}
+
+	//Grab password
+	pwd, err = s.GetConfigItem("MQTT_PWD")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_PWD: <will not be shown in log>")
+	} else {
+		s.LogError("Config read failed:  MQTT_PWD", err)
+		panic(errorMessageFailedConfiguration)
+	}
+
+	//Grab user
+	user, err = s.GetConfigItem("MQTT_USER")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_USER: " + user)
+	} else {
+		s.LogError("Config read failed:  MQTT_USER", err)
+		panic(errorMessageFailedConfiguration)
+	}
+
+	//Grab service name
+	svcName, err = s.GetConfigItem("MQTT_SVC_NAME")
+	if err == nil {
+		s.LogDebug("Config found:  MQTT_SVC_NAME: " + svcName)
+	} else {
+		s.LogError("Config read failed:  MQTT_SVC_NAME", err)
+		panic(errorMessageFailedConfiguration)
+	}
+
+	return server, pwd, user, svcName, err
 }
 
 func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
@@ -298,24 +367,24 @@ func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) 
 }
 func (s *edgeConnectorMQTT) buildSubscriptionTopicString(category string, changeFilerVal interface{}) string {
 	topic := s.topicTemplate
-	topic = strings.Replace(topic, "<EQNAME>", fmt.Sprintf("%s", changeFilerVal), -1)
+	topic = strings.Replace(topic, topicEQName, fmt.Sprintf("%s", changeFilerVal), -1)
 	//TODO - more robust and complete template processing
-	topic = strings.Replace(topic, "<CATEGORY>", category, -1)
-	topic = strings.Replace(topic, "<TAGNAME>", "#", -1)
+	topic = strings.Replace(topic, topicCategory, category, -1)
+	topic = strings.Replace(topic, topicTagName, "#", -1)
 	return topic
 }
 func (s *edgeConnectorMQTT) buildPublishTopicString(tag domain.StdMessageStruct) string {
 	var topic string = s.topicTemplate
-	topic = strings.Replace(topic, "<EQNAME>", tag.OwningAsset, -1)
+	topic = strings.Replace(topic, topicEQName, tag.OwningAsset, -1)
 	switch tag.Category {
 	case "TAGDATA":
-		topic = strings.Replace(topic, "<CATEGORY>", s.tagDataCategory, -1)
+		topic = strings.Replace(topic, topicCategory, s.tagDataCategory, -1)
 	case "EVENT":
-		topic = strings.Replace(topic, "<CATEGORY>", s.eventCategory, -1)
+		topic = strings.Replace(topic, topicCategory, s.eventCategory, -1)
 	default:
-		topic = strings.Replace(topic, "<CATEGORY>", "EdgeMessage", -1)
+		topic = strings.Replace(topic, topicCategory, "EdgeMessage", -1)
 	}
-	topic = strings.Replace(topic, "<TAGNAME>", tag.ItemName, -1)
+	topic = strings.Replace(topic, topicTagName, tag.ItemName, -1)
 	//TODO - more robust and complete template processing
 	return topic
 }
@@ -354,7 +423,6 @@ func (s *edgeConnectorMQTT) SubscribeToTopic(topic string) error {
 }
 
 func (s *edgeConnectorMQTT) tagChangeHandler(m *paho.Publish) {
-
 	var tagStruct domain.StdMessageStruct
 	err := json.Unmarshal(m.Payload, &tagStruct)
 	if err == nil {

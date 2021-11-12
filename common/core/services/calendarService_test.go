@@ -48,6 +48,10 @@ func (libreConnector FakeLibreConnector) ListenForEdgeTagChanges(c chan domain.S
 	}
 }
 
+func (libreConnector FakeLibreConnector) StopListeningForTagChanges(client string) error {
+	return nil
+}
+
 func (libreConnector FakeLibreConnector) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
 	panic("implement me")
 }

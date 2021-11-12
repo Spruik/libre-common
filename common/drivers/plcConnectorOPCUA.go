@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/Spruik/libre-common/common/core/domain"
-	"github.com/Spruik/libre-common/common/core/queries"
-	"github.com/Spruik/libre-common/common/core/services"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	"github.com/gopcua/opcua"
@@ -234,27 +232,6 @@ func (s *plcConnectorOPCUA) Unsubscribe(equipmentId *string, topicList []string)
 		}
 	}
 	return nil
-}
-
-func (s *plcConnectorOPCUA) buildAliasMapForEquipment(eqName string) map[string]string {
-	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "aliasCheck")
-	defer txn.Dispose()
-	ret, err := queries.GetAliasPropertyNamesForSystem(txn, s.aliasSystem, eqName)
-	if err == nil {
-		return ret
-	} else {
-		panic(err)
-	}
-}
-
-func (s *plcConnectorOPCUA) getPropNameForAlias(extName string, eqName string) string {
-	txn := services.GetLibreDataStoreServiceInstance().BeginTransaction(false, "stdCheck")
-	defer txn.Dispose()
-	intName, err := queries.GetPropertyNameForSystemAlias(txn, s.aliasSystem, extName, eqName)
-	if err == nil {
-		return intName
-	}
-	return extName
 }
 
 func (s *plcConnectorOPCUA) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {

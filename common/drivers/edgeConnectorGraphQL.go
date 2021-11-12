@@ -11,7 +11,6 @@ import (
 
 	//"github.com/nats-io/nats.go"
 	"log"
-	"regexp"
 
 	//"strings"
 	"time"
@@ -23,15 +22,13 @@ type edgeConnectorGraphQL struct {
 	//inherit config functions
 	libreConfig.ConfigurationEnabler
 
-	gqlClient        *gql.SubscriptionClient
-	config           map[string]string
-	ChangeChannels   map[string]chan domain.StdMessageStruct
-	singleChannel    chan domain.StdMessageStruct
-	subscriptions    map[string]*domain.DataSubscription
-	topicTemplate    string
-	topicParseRegExp *regexp.Regexp
-	tagDataCategory  string
-	eventCategory    string
+	gqlClient      *gql.SubscriptionClient
+	ChangeChannels map[string]chan domain.StdMessageStruct
+	singleChannel  chan domain.StdMessageStruct
+	subscriptions  map[string]*domain.DataSubscription
+
+	// Keep track of client topics so we can stop listening/unsubscribe by client
+	clientTopics map[string][]string
 }
 
 //Initialize edge connectors for NATS
@@ -117,12 +114,13 @@ func (s *edgeConnectorGraphQL) ListenForEdgeTagChanges(c chan domain.StdMessageS
 	}
 	for _, val := range changeFilter {
 		sub := s.buildSubscription(val)
-		err := s.subscribe(sub)
+		err := s.subscribe(clientName, sub)
 		if err == nil {
 			s.LogInfof("Subscribed to topic %s", sub.Topic)
 		} else {
 			panic(err)
 		}
+
 	}
 }
 func (s *edgeConnectorGraphQL) GetTagHistory(startTS time.Time, endTS time.Time, inTagDefs []domain.StdMessageStruct) []domain.StdMessageStruct {
@@ -134,7 +132,7 @@ func (s *edgeConnectorGraphQL) GetTagHistory(startTS time.Time, endTS time.Time,
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // support functions
 //
-func (s *edgeConnectorGraphQL) subscribe(sub *domain.DataSubscription) error {
+func (s *edgeConnectorGraphQL) subscribe(client string, sub *domain.DataSubscription) error {
 	var variables map[string]interface{}
 	id, err := s.gqlClient.Subscribe(sub.Query, variables, func(data *json.RawMessage, err error) error {
 		if err != nil {
@@ -168,6 +166,7 @@ func (s *edgeConnectorGraphQL) subscribe(sub *domain.DataSubscription) error {
 	} else {
 		sub.Id = id
 		s.subscriptions[sub.Topic] = sub
+		s.clientTopics[client] = append(s.clientTopics[client], id)
 	}
 	return nil
 }
@@ -175,4 +174,30 @@ func (s *edgeConnectorGraphQL) subscribe(sub *domain.DataSubscription) error {
 func (s *edgeConnectorGraphQL) buildSubscription(changeFilterVal interface{}) *domain.DataSubscription {
 	sub := changeFilterVal.(*domain.DataSubscription)
 	return sub
+}
+
+func (s *edgeConnectorGraphQL) StopListeningForTagChanges(client string) (err error) {
+	subscriptionIDs, exists := s.clientTopics[client]
+
+	// Return early if client doesn't exist
+	if !exists {
+		return nil
+	}
+
+	// Unsubscribe
+	for _, subscriptionID := range subscriptionIDs {
+		err = s.gqlClient.Unsubscribe(subscriptionID)
+		if err != nil {
+			s.LogDebugf("edgeConnectorGraphQL unsubscribed to %s expected no error; got %s", subscriptionID, err)
+		}
+		delete(s.subscriptions, subscriptionID)
+	}
+
+	// Remove from Client Map
+	delete(s.clientTopics, client)
+
+	// Remove from data channel
+	delete(s.ChangeChannels, client)
+
+	return err
 }
