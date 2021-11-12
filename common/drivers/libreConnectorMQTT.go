@@ -210,34 +210,6 @@ func (s *libreConnectorMQTT) ListenForGetTagHistoryRequest(c chan []domain.StdMe
 
 }
 
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
-// support functions
-//
-func (s *libreConnectorMQTT) subscribeToTopic(topic string) {
-	subPropsStruct := &paho.SubscribeProperties{
-		SubscriptionIdentifier: nil,
-		User:                   nil,
-	}
-	var subMap = make(map[string]paho.SubscribeOptions)
-	subMap[topic] = paho.SubscribeOptions{
-		QoS:               0,
-		RetainHandling:    0,
-		NoLocal:           false,
-		RetainAsPublished: false,
-	}
-	subStruct := &paho.Subscribe{
-		Properties:    subPropsStruct,
-		Subscriptions: subMap,
-	}
-	_, err := s.mqttConnectionManager.Subscribe(context.Background(), subStruct)
-	if err != nil {
-		s.LogErrorf("mqtt subscribe error :%s\n", err)
-	} else {
-		s.LogInfof("mqtt subscribed to : %s\n", topic)
-	}
-}
-
 func (s *libreConnectorMQTT) send(topic string, message domain.StdMessageStruct) {
 	jsonBytes, err := json.Marshal(message)
 	retain := false

@@ -3,24 +3,24 @@ package drivers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/Spruik/libre-common/common/core/domain"
 	libreConfig "github.com/Spruik/libre-configuration"
 	libreLogger "github.com/Spruik/libre-logging"
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	"github.com/influxdata/influxdb-client-go/v2/api"
-	"time"
 )
 
 type libreHistorianInfluxdb struct {
 	libreConfig.ConfigurationEnabler
 	libreLogger.LoggingEnabler
 
-	org                   string
-	bucket                string
-	client                influxdb2.Client
-	writeAPI              api.WriteAPIBlocking
-	queryAPI              api.QueryAPI
-	eqPropMeasurementName string
+	org      string
+	bucket   string
+	client   influxdb2.Client
+	writeAPI api.WriteAPIBlocking
+	queryAPI api.QueryAPI
 }
 
 func NewLibreHistorianInfluxdb(configHook string) *libreHistorianInfluxdb {
