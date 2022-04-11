@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
 	"github.com/eclipse/paho.golang/paho"
@@ -82,6 +83,8 @@ type ConnectionManager struct {
 	cancelCtx context.CancelFunc // Calling this will shut things down cleanly
 
 	done chan struct{} // Channel that will be closed when the process has cleanly shutdown
+
+	id uuid.UUID
 }
 
 // ResetUsernamePassword clears any configured username and password on the client configuration
@@ -186,6 +189,7 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 		connUp:    make(chan struct{}),
 		cancelCtx: cancel,
 		done:      make(chan struct{}),
+		id:        uuid.New(),
 	}
 	errChan := make(chan error)
 
@@ -236,12 +240,12 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 			case <-innerCtx.Done():
 				// As the connection is up we call disconnect to shut things down cleanly
 				if err = c.cli.Disconnect(&paho.Disconnect{ReasonCode: 0}); err != nil {
-					cfg.Debug.Printf("disconnect returned error: %s\n", err)
+					cfg.Debug.Printf("%s | disconnect returned error: %s\n", c.id.String(), err)
 				}
 				if ctx.Err() != nil { // If this is due to outer context being cancelled then this will have happened before the inner one gets cancelled.
-					cfg.Debug.Printf("broker connection handler exiting due to context: %s\n", ctx.Err())
+					cfg.Debug.Printf("%s | broker connection handler exiting due to context: %s\n", c.id.String(), ctx.Err())
 				} else {
-					cfg.Debug.Printf("broker connection handler exiting due to Disconnect call: %s\n", innerCtx.Err())
+					cfg.Debug.Printf("%s | broker connection handler exiting due to Disconnect call: %s\n", c.id.String(), innerCtx.Err())
 				}
 				break mainLoop
 			}
@@ -249,18 +253,18 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 			c.cli = nil
 			c.connUp = make(chan struct{})
 			c.mu.Unlock()
-			cfg.Debug.Printf("connection to broker lost (%s); will reconnect\n", err)
+			cfg.Debug.Printf("%s| connection to broker lost (%s); will reconnect", c.id.String(), err)
 			if cfg.ReconnectBackoff {
 				minimumWaitTime := currentConnectionDelay + time.Second*10 // At least 10s with current Connection Delay
 				actualWaitTime := time.Since(connectTime)
 				if cfg.ReconnectBackoffDebug {
-					cfg.Debug.Printf("Has been %s since connection, expected wait time is %s\n", actualWaitTime, minimumWaitTime)
+					cfg.Debug.Printf("%s | Has been %s since connection, expected wait time is %s", c.id.String(), actualWaitTime, minimumWaitTime)
 				}
 				if actualWaitTime > minimumWaitTime {
 					// Been waiting longer than the wait time lets reset our currentConnectionDelay
 					currentConnectionDelay = time.Second
 					if cfg.ReconnectBackoffDebug {
-						cfg.Debug.Printf("Resetting currentConnectionDelay to %s\n", currentConnectionDelay)
+						cfg.Debug.Printf("%s | Resetting currentConnectionDelay to %s", c.id.String(), currentConnectionDelay)
 					}
 				} else {
 					currentConnectionDelay = currentConnectionDelay * 2
@@ -268,14 +272,14 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 						currentConnectionDelay = maximumConnectionDelay
 					}
 					if cfg.ReconnectBackoffDebug {
-						cfg.Debug.Printf("Setting currentConnectionDelay to %s\n", currentConnectionDelay)
+						cfg.Debug.Printf("%s | Setting currentConnectionDelay to %s", c.id.String(), currentConnectionDelay)
 					}
 				}
-				cfg.Debug.Printf("waiting %s before reconnect\n", currentConnectionDelay)
+				cfg.Debug.Printf("%s | waiting %s before reconnect", c.id.String(), currentConnectionDelay)
 				<-time.After(currentConnectionDelay)
 			}
 		}
-		cfg.Debug.Println("connection manager has terminated")
+		cfg.Debug.Println("%s | connection manager has terminated", c.id.String())
 	}()
 	return &c, nil
 }
@@ -312,7 +316,7 @@ func (c *ConnectionManager) AwaitConnection(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-c.done: // If connection process is cancelled we should exit
-		return fmt.Errorf("connection manager shutting down")
+		return fmt.Errorf("%s | connection manager shutting down", c.id)
 	}
 }
 
