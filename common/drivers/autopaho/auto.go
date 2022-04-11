@@ -217,7 +217,7 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 			cliCfg.OnClientError = eh.onClientError
 			cliCfg.OnServerDisconnect = eh.onServerDisconnect
 
-			cli, connAck := establishBrokerConnection(innerCtx, cliCfg)
+			cli, connAck := establishBrokerConnection(innerCtx, cfg.Debug, cliCfg)
 			if cli == nil {
 				break mainLoop // Only occurs when context is cancelled
 			}
@@ -279,7 +279,7 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 				<-time.After(currentConnectionDelay)
 			}
 		}
-		cfg.Debug.Println("%s | connection manager has terminated", c.id.String())
+		cfg.Debug.Printf("%s | connection manager has terminated\n", c.id.String())
 	}()
 	return &c, nil
 }
@@ -363,4 +363,8 @@ func (c *ConnectionManager) Publish(ctx context.Context, p *paho.Publish) (*paho
 		return nil, ErrorConnectionDown
 	}
 	return cli.Publish(ctx, p)
+}
+
+func (c *ConnectionManager) GetId() string {
+	return c.id.String()
 }

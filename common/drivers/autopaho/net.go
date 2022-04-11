@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -22,10 +21,10 @@ import (
 
 // establishBrokerConnection - establishes a connection with the broker retrying until successful or the
 // context is cancelled (in which case nil will be returned).
-func establishBrokerConnection(ctx context.Context, cfg ClientConfig) (*paho.Client, *paho.Connack) {
+func establishBrokerConnection(ctx context.Context, logger paho.Logger, cfg ClientConfig) (*paho.Client, *paho.Connack) {
 	// Note: We do not touch b.cli in order to avoid adding thread safety issues.
 	var err error
-	log.Println("Establishing MQTT Connection")
+	logger.Println("Establishing MQTT Connection")
 	for {
 		for _, u := range cfg.BrokerUrls {
 			connectionCtx, cancelConnCtx := context.WithTimeout(ctx, cfg.ConnectTimeout)
@@ -34,9 +33,9 @@ func establishBrokerConnection(ctx context.Context, cfg ClientConfig) (*paho.Cli
 			case "mqtt", "tcp", "":
 				cfg.Conn, err = attemptTCPConnection(connectionCtx, u.Host)
 				if err != nil {
-					log.Println("**************** connected to mqtt")
+					logger.Println("**************** connected to mqtt")
 				} else {
-					log.Println(err)
+					logger.Println(err)
 				}
 			case "ssl", "tls", "mqtts", "mqtt+ssl", "tcps":
 				cfg.Conn, err = attemptTLSConnection(connectionCtx, cfg.TlsCfg, u.Host)
@@ -56,7 +55,7 @@ func establishBrokerConnection(ctx context.Context, cfg ClientConfig) (*paho.Cli
 				var ca *paho.Connack
 				ca, err = cli.Connect(connectionCtx, cp) // will return an error if the connection is unsuccessful (checks the reason code)
 				if err == nil {                          // Successfully connected
-					log.Println("****************** Connected successfully to MQTT")
+					logger.Println("****************** Connected successfully to MQTT")
 					cancelConnCtx()
 					return cli, ca
 				}
