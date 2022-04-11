@@ -130,7 +130,7 @@ func (s *pubSubConnectorMQTT) Connect() error {
 	}
 
 	tlsConfig := tls.Config{}
-	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && strings.EqualFold(skip, "true") {
+	if skip, tlsErr := s.GetConfigItem("INSECURE_SKIP_VERIFY"); tlsErr == nil && strings.EqualFold(skip, "true") {
 		tlsConfig.InsecureSkipVerify = true
 		s.LogDebug("pubSubConnector set InsecureSkipVerify = true")
 	}

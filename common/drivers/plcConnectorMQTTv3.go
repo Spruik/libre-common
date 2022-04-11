@@ -101,7 +101,7 @@ func (s *plcConnectorMQTTv3) Connect() error {
 		tlsConfig := newTLSConfig()
 		opts.AddBroker("ssl://" + server)
 
-		if _, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil {
+		if skip, tlsErr := s.GetConfigItem("INSECURE_SKIP_VERIFY"); tlsErr == nil && strings.EqualFold(skip, "true") {
 			tlsConfig.InsecureSkipVerify = true
 		}
 

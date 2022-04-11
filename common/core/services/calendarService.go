@@ -178,7 +178,9 @@ func (s *calendarService) listenForHyrdateResponses(expectedMessageCount int) {
 }
 
 func (s *calendarService) Start() (err error) {
-	s.hydrateCache()
+	if errHydrate := s.hydrateCache(); errHydrate != nil {
+		s.LogErrorf("failed to hydrateCache, expected no error; got %s", errHydrate)
+	}
 	if s.ticker == nil {
 		s.ticker = time.NewTicker(s.tickerDuration)
 		s.workCalendars, err = s.dataStore.GetAllActiveWorkCalendar()

@@ -129,7 +129,7 @@ func (s *edgeConnectorMQTT) Connect(clientId string) error {
 	}
 
 	tlsConfig := tls.Config{}
-	if skip, err := s.GetConfigItem("INSECURE_SKIP_VERIFY"); err == nil && strings.EqualFold(skip, "true") {
+	if skip, tlsErr := s.GetConfigItem("INSECURE_SKIP_VERIFY"); tlsErr == nil && strings.EqualFold(skip, "true") {
 		tlsConfig.InsecureSkipVerify = true
 		s.LogDebug("set InsecureSkipVerify = true")
 	}
@@ -355,9 +355,9 @@ func (s *edgeConnectorMQTT) send(topic string, message domain.StdMessageStruct) 
 			Properties: nil,
 			Payload:    jsonBytes,
 		}
-		pubResp, err := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
-		if err != nil {
-			s.LogErrorf("mqtt publish error : [%s] / [%+v\n]", err, pubResp)
+		pubResp, publishErr := s.mqttConnectionManager.Publish(context.Background(), pubStruct)
+		if publishErr != nil {
+			s.LogErrorf("mqtt publish error : [%s] / [%+v\n]", publishErr, pubResp)
 		} else {
 			s.LogInfof("Published to: [%s]", topic)
 		}
