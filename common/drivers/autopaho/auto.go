@@ -65,7 +65,8 @@ type ClientConfig struct {
 
 	connectPacketBuilder func(*paho.Connect) *paho.Connect
 
-	ReconnectBackoff bool
+	ReconnectBackoff      bool
+	ReconnectBackoffDebug bool
 
 	// We include the full paho.ClientConfig in order to simplify moving between the two packages.
 	// Note that that Conn will be ignored.
@@ -250,17 +251,28 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 			c.mu.Unlock()
 			cfg.Debug.Printf("connection to broker lost (%s); will reconnect\n", err)
 			if cfg.ReconnectBackoff {
-				wait := currentConnectionDelay - time.Since(connectTime)
-				if wait > time.Duration(0) {
-					cfg.Debug.Printf("waiting %s before reconnect\n", wait)
-					<-time.After(wait)
+				minimumWaitTime := currentConnectionDelay + time.Second*10 // At least 10s with current Connection Delay
+				actualWaitTime := time.Since(connectTime)
+				if cfg.ReconnectBackoffDebug {
+					cfg.Debug.Printf("Has been %s since connection, expected wait time is %s\n", actualWaitTime, minimumWaitTime)
+				}
+				if actualWaitTime > minimumWaitTime {
+					// Been waiting longer than the wait time lets reset our currentConnectionDelay
+					currentConnectionDelay = time.Second
+					if cfg.ReconnectBackoffDebug {
+						cfg.Debug.Printf("Resetting currentConnectionDelay to %s\n", currentConnectionDelay)
+					}
+				} else {
 					currentConnectionDelay = currentConnectionDelay * 2
 					if currentConnectionDelay > maximumConnectionDelay {
 						currentConnectionDelay = maximumConnectionDelay
 					}
-				} else {
-					currentConnectionDelay = initialConnectionDelay
+					if cfg.ReconnectBackoffDebug {
+						cfg.Debug.Printf("Setting currentConnectionDelay to %s\n", currentConnectionDelay)
+					}
 				}
+				cfg.Debug.Printf("waiting %s before reconnect\n", currentConnectionDelay)
+				<-time.After(currentConnectionDelay)
 			}
 		}
 		cfg.Debug.Println("connection manager has terminated")
