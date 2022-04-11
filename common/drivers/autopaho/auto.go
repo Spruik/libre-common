@@ -65,6 +65,8 @@ type ClientConfig struct {
 
 	connectPacketBuilder func(*paho.Connect) *paho.Connect
 
+	ReconnectBackoff bool
+
 	// We include the full paho.ClientConfig in order to simplify moving between the two packages.
 	// Note that that Conn will be ignored.
 	paho.ClientConfig
@@ -186,11 +188,18 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 	}
 	errChan := make(chan error)
 
+	initialConnectionDelay := time.Second
+	currentConnectionDelay := initialConnectionDelay
+	maximumConnectionDelay := time.Minute * 5
+	connectTime := time.Now()
+
 	go func() {
 		defer close(c.done)
 
 	mainLoop:
 		for {
+			connectTime = time.Now()
+
 			// Error handler is used to guarantee that a single error will be received whenever the connection is lost
 			eh := errorHandler{
 				debug:                  cfg.Debug,
@@ -240,6 +249,19 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 			c.connUp = make(chan struct{})
 			c.mu.Unlock()
 			cfg.Debug.Printf("connection to broker lost (%s); will reconnect\n", err)
+			if cfg.ReconnectBackoff {
+				wait := currentConnectionDelay - time.Since(connectTime)
+				if wait > time.Duration(0) {
+					cfg.Debug.Printf("waiting %s before reconnect\n", wait)
+					<-time.After(wait)
+					currentConnectionDelay = currentConnectionDelay * 2
+					if currentConnectionDelay > maximumConnectionDelay {
+						currentConnectionDelay = maximumConnectionDelay
+					}
+				} else {
+					currentConnectionDelay = initialConnectionDelay
+				}
+			}
 		}
 		cfg.Debug.Println("connection manager has terminated")
 	}()
