@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -52,7 +51,7 @@ func (s *edgeConnectorNATS) Connect(connInfo map[string]interface{}) error {
 	var err error
 	var server string
 	if server, err = s.GetConfigItem("NATS_SERVER"); err == nil {
-		log.Println("Found all the config items")
+		s.LogInfo("Found all the config items")
 	}
 	if err != nil {
 		panic("Failed to find configuration data for libreConnectorNATS")
@@ -75,7 +74,6 @@ func (s *edgeConnectorNATS) Close() error {
 	}
 	s.natsConn.Close()
 	s.LogInfof("Edge Connection Closed\n")
-	log.Println("Edge Connection Closed")
 	return nil
 }
 
@@ -175,9 +173,6 @@ func (s *edgeConnectorNATS) SubscribeToTopic(client string, topic string) error 
 			s.LogErrorf("Failed to unmarshal the payload of the incoming message: %s [%s]", string(msg.Data), err)
 		}
 		msg.Ack()
-
-		//fmt.Println(value)
-		//log.Printf("monitor service subscribes from subject:%s\n", msg.Subject)
 	})
 
 	// Store so we can later unsubscribe

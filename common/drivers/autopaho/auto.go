@@ -279,7 +279,7 @@ func NewConnection(ctx context.Context, cfg ClientConfig) (*ConnectionManager, e
 				<-time.After(currentConnectionDelay)
 			}
 		}
-		cfg.Debug.Println("%s | connection manager has terminated", c.id.String())
+		cfg.Debug.Printf("%s | connection manager has terminated\n", c.id.String())
 	}()
 	return &c, nil
 }

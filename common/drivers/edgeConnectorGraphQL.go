@@ -54,7 +54,7 @@ func (s *edgeConnectorGraphQL) Connect(connInfo map[string]interface{}) error {
 			"headers": map[string]string{
 				"X-Auth0-Token": "",
 			},
-		}).WithLog(log.Println).
+		}).WithLog(s.LogDebug).
 		WithTimeout(8760*time.Hour).
 		WithoutLogTypes(gql.GQL_DATA, gql.GQL_CONNECTION_KEEP_ALIVE).
 		OnError(func(sc *gql.SubscriptionClient, err error) error {
@@ -162,7 +162,7 @@ func (s *edgeConnectorGraphQL) subscribe(client string, sub *domain.DataSubscrip
 		return nil
 	})
 	if err != nil {
-		log.Println(err)
+		s.LogErrorf("failed to subscribe, expected no error; got %s", err)
 	} else {
 		sub.Id = id
 		s.subscriptions[sub.Topic] = sub
