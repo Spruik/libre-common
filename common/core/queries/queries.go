@@ -210,9 +210,9 @@ func GetAliasPropertyNameForSystem(txn ports.LibreDataStoreTransactionPort, syst
 				"propId": graphql.ID(targetProp.Id),
 				"system": graphql.String(system),
 			}
-			err := txn.ExecuteQuery(&q, variables)
+			exceuteErr := txn.ExecuteQuery(&q, variables)
 			if len(q.QueryPropertyNameAlias) > 0 {
-				return q.QueryPropertyNameAlias[0].Alias, err
+				return q.QueryPropertyNameAlias[0].Alias, exceuteErr
 			}
 		}
 	}

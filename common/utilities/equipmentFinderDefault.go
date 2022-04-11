@@ -113,15 +113,15 @@ func (s *equipmentFinderDefault) SubscribeToChanges(notificationChannel chan por
 					var q struct {
 						QueryEquipment []domain.Equipment `json:"queryEquipment"`
 					}
-					err := json.Unmarshal(msg, &q)
+					jsonErr := json.Unmarshal(msg, &q)
 					var ret = ports.EquipmentFinderChangeNotice{
 						ChangeType: "EquipmentChange",
 						Equipment:  q.QueryEquipment,
 					}
-					if err == nil {
+					if jsonErr == nil {
 						n <- ret
 					} else {
-						s.LogErrorf("Failed in Unmarshal of eq change message: %s", err)
+						s.LogErrorf("Failed in Unmarshal of eq change message: %s", jsonErr)
 					}
 				} else {
 					s.LogDebugf("waiting for change notice in equipment finder")

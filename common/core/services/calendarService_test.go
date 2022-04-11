@@ -249,7 +249,7 @@ func TestCalendarService(t *testing.T) {
 	}
 
 	libreConfig.Initialize("../../../config/calender-test-config.json")
-	libreLogger.Initialize("libreLogger")
+	_ = libreLogger.Initialize("libreLogger")
 
 	service := NewCalendarService("calendarService", fakeLibreDataStore, fakeLibreConnector)
 

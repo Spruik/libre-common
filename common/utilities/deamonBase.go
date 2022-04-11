@@ -166,9 +166,9 @@ func (d *DaemonBase) acceptCommand() error {
 			d.LogDebugf("%s start sending %s command to children", d.name, chgCmd.Cmd.GetCommandName())
 			for _, child := range d.daemonChildren {
 				d.LogDebug(d.name, "sending command to child", child.GetName(), chgCmd.Cmd.GetCommandName())
-				childresp, err := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
-				if err != nil {
-					panic(err)
+				childresp, submitErr := child.SubmitCommand(chgCmd.Cmd, chgCmd.Params)
+				if submitErr != nil {
+					panic(submitErr)
 				}
 				if childresp != nil {
 					resp[child.GetName()] = childresp
