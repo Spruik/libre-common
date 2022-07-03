@@ -57,6 +57,7 @@ type StdMessageStruct struct {
 	ChangedTimestamp  time.Time            `json:"ChangedTimestamp"`
 	PreviousTimestamp time.Time            `json:"PreviousTimestamp"`
 	Category          string               `json:"Category"`
+	SubCategory       string               `json:"SubCategory"`
 	Topic             string               `json:"Topic"`
 	ReplyTopic        string               `json:"ReplyTopic,omitempty"`
 	History           *dataframe.DataFrame `json:"History,omitempty"`
